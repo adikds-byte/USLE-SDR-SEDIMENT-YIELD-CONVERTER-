@@ -592,7 +592,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5">
                     <button type="button" onclick="openAppsModal()" class="hdr-chip bg-gradient-to-r from-amber-500 via-lime-500 to-emerald-500 hover:brightness-110 text-slate-950 font-black">
-                        <i class="fa-solid fa-cubes-stacked"></i><span>MY APLIKASI (61)</span>
+                        <i class="fa-solid fa-cubes-stacked"></i><span>MY APLIKASI (77)</span>
                     </button>
                     <button type="button" onclick="openCreatorModal()" class="hdr-chip bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/50 font-bold">
                         <i class="fa-solid fa-user-tie"></i><span>PENELITI/DEV</span>
@@ -1128,24 +1128,42 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- 6. MODAL DIREKTORI 61 APLIKASI WEB IR. MOHAMAD HARTADI                    -->
+    <!-- 6. MODAL DIREKTORI 77 APLIKASI WEB IR. MOHAMAD HARTADI                    -->
     <!-- ========================================================================= -->
-    <div id="modalApps" class="fixed inset-0 z-[1200] bg-black/85 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 font-mono text-xs">
-        <div class="cmd-card max-w-5xl w-full p-5 space-y-4 border-2 border-lime-500/75 bg-[#061216] max-h-[90vh] flex flex-col">
+    <div id="modalApps" onclick="if(event.target===this) closeAppsModal()" class="fixed inset-0 z-[1200] bg-black/85 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 font-mono text-xs">
+        <div class="cmd-card max-w-6xl w-full p-5 space-y-3.5 border-2 border-lime-500/75 bg-[#061216] max-h-[90vh] flex flex-col shadow-2xl">
             <div class="flex items-center justify-between border-b border-lime-500/30 pb-3">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-lime-500 to-emerald-500 flex items-center justify-center text-slate-950 text-lg font-black">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-lime-500 to-emerald-500 flex items-center justify-center text-slate-950 text-lg font-black shadow-lg">
                         <i class="fa-solid fa-cubes-stacked"></i>
                     </div>
                     <div>
-                        <h3 class="font-tech text-sm sm:text-base font-black text-amber-300">DIREKTORI 61 MY APLIKASI WEB — IR. MOHAMAD HARTADI</h3>
-                        <p class="text-[10px] text-lime-300">Ekosistem Aplikasi Web Geoteknik, Bendungan, Hidrologi, Pesisir, Seismik &amp; AI</p>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="font-tech text-sm sm:text-base font-black text-amber-300">DIREKTORI 77 MY APLIKASI WEB — IR. MOHAMAD HARTADI</h3>
+                            <span id="appResultCountBadge" class="px-2 py-0.5 rounded-full bg-lime-500/20 border border-lime-400/60 text-lime-300 text-[10px] font-bold">77 Aplikasi</span>
+                        </div>
+                        <p class="text-[10px] text-lime-300/90">Ekosistem Komputasi Web Geoteknik, Bendungan, Hidrologi, Pesisir, Seismik, Medis, Bisnis &amp; AI</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeAppsModal()" class="w-8 h-8 rounded-lg bg-slate-900 border border-lime-500/40 text-lime-300 hover:bg-lime-500 hover:text-slate-950 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" onclick="closeAppsModal()" class="w-8 h-8 rounded-lg bg-slate-900 border border-lime-500/40 text-lime-300 hover:bg-lime-500 hover:text-slate-950 cursor-pointer transition"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <input type="text" id="appSearchInput" oninput="renderAppsDirectory(this.value)" placeholder="Cari aplikasi (contoh: sedimen, way apu, dam, geostruct, seismik, jarvis)..." class="w-full bg-slate-950 border border-lime-500/50 rounded-xl px-3.5 py-2 text-white outline-none">
-            <div id="appsGridContainer" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pr-1"></div>
+
+            <!-- Search Bar & Quick Reset -->
+            <div class="flex flex-col sm:flex-row gap-2">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-lime-400"></i>
+                    <input type="text" id="appSearchInput" oninput="renderAppsDirectory()" placeholder="Cari dari 77 aplikasi (contoh: geostruct, dam, sedimen, syifa, kasir, jarvis, quran)..." class="w-full bg-slate-950 border border-lime-500/50 focus:border-amber-400 rounded-xl pl-9 pr-3.5 py-2 text-white outline-none">
+                </div>
+                <button type="button" onclick="resetAppDirectoryFilter()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold cursor-pointer whitespace-nowrap">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Reset Filter
+                </button>
+            </div>
+
+            <!-- Category Filter Chips -->
+            <div id="appCategoryFilterBar" class="flex items-center gap-1.5 overflow-x-auto pb-1"></div>
+
+            <!-- Grid Cards Container -->
+            <div id="appsGridContainer" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pr-1"></div>
         </div>
     </div>
 
@@ -1226,7 +1244,7 @@
         <button type="button" onclick="openWordReportsModal()" class="w-11 h-11 rounded-full bg-amber-600 hover:bg-amber-500 text-white border border-amber-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Pusat Ekspor 13 Laporan Word (.doc)">
             <i class="fa-solid fa-file-word"></i>
         </button>
-        <button type="button" onclick="openAppsModal()" class="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Direktori 61 My Aplikasi">
+        <button type="button" onclick="openAppsModal()" class="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Direktori 77 My Aplikasi">
             <i class="fa-solid fa-cubes-stacked"></i>
         </button>
         <button type="button" onclick="toggleScreensaver(true)" class="w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white border border-blue-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Screensaver Bumi 3D Interaktif + Doa & Motivasi">
@@ -2675,46 +2693,185 @@
     }
 
     /* ============================================================================
-       BAGIAN 6: DIREKTORI 61 MY APLIKASI, MODALS, JAM WIB & EVENT LISTENERS
+       BAGIAN 6: DIREKTORI 77 MY APLIKASI, MODALS, JAM WIB & EVENT LISTENERS
        ============================================================================ */
     const myAppsDirectory = [
-        {"u": "https://adikds-byte.github.io/DSS-Sedimen-Pro-v4.81-Pro/", "n": "DSS Sedimen Pro v4.81", "cat": "Pesisir & Sedimen"},
-        {"u": "https://adikds.github.io/WAY-APU-DAM/", "n": "Way Apu Dam Impounding Pro", "cat": "Bendungan & Hidrologi"},
-        {"u": "https://adikds.github.io/INTEGRATED-DAM-ANALYTICS-ASSESSMENT-SYSTEM/", "n": "Dam Analytics System", "cat": "Bendungan & Hidrologi"},
-        {"u": "https://adikds-byte.github.io/BENDUNGAN-TAILING-COMMAND-CENTRE/", "n": "Tailing Dam Command Centre", "cat": "Geoteknik & Sipil"},
-        {"u": "https://adikds.github.io/jarvis-ai/", "n": "JARVIS AI Command", "cat": "AI & Agent"},
-        {"u": "https://adikds.github.io/APEX-Foundations-v3.1-Geotechnical-AI-/", "n": "Apex Foundations v3.1", "cat": "Geoteknik & Sipil"},
-        {"u": "https://adikds.github.io/GeoStructPro-15-Essential-Geotechnical-Formulas/", "n": "GeoStructPro 15", "cat": "Geoteknik & Sipil"},
-        {"u": "https://adikds.github.io/GEOSTRUCT-PRO-20-FORMULA-GEOTECHNICAL/", "n": "GeoStruct Pro 20", "cat": "Geoteknik & Sipil"},
-        {"u": "https://adikds.github.io/SISTEM-MONITORING-SEISMIK-PERINGATAN-TSUNAMI/", "n": "Monitoring Seismik & Tsunami", "cat": "Seismik & Mitigasi"},
-        {"u": "https://adikds.github.io/MONITORING-PREDIKSI-ANGIN-MUSON-INDONESIA/", "n": "Monitoring Angin Muson", "cat": "Klimatologi & Cuaca"},
-        {"u": "https://adikds-byte.github.io/COASTAL-SWI-ENGINE-PRO/", "n": "Coastal SWI Engine Pro", "cat": "Pesisir & Coastal SWI"},
-        {"u": "https://adikds-byte.github.io/Indonesia_Dams_DSS/", "n": "Indonesia Dams DSS", "cat": "Bendungan & Energy"},
-        {"u": "https://newbieonline7.blogspot.com/", "n": "My Blog Engineering & AI", "cat": "Blog Artikel & AI"}
+        ["https://adikds.github.io/jarvis-ai/","JARVIS AI","AI & Agent"],
+        ["https://adikds.github.io/-Doa-Digital-Pro/","Doa Digital Pro","Religi & Islami"],
+        ["https://adikds.github.io/Al-Quran-Karim/","Al-Quran Karim","Religi & Islami"],
+        ["https://adikds.github.io/ai-meeting-assistant/","AI Meeting Pro","AI & Produktivitas"],
+        ["https://adikds.github.io/NEXUS-PAGE-AGENT-VER.1.0/","Nexus Page Agent","AI & Agent"],
+        ["https://adikds.github.io/APEX-Foundations-v3.1-Geotechnical-AI-/","Apex Foundations","Geoteknik & Sipil"],
+        ["https://adikds.github.io/ANALISIS-PONDASI-TELAPAK-/","Analisis Pondasi","Geoteknik & Sipil"],
+        ["https://adikds.github.io/AASHTO-SOIL-CLASSIFIER/","AASHTO Soil","Geoteknik & Sipil"],
+        ["https://adikds.github.io/ATLAS-GEOTEKNIK/","Atlas Geoteknik","Geoteknik & Sipil"],
+        ["https://adikds.github.io/GeoStructPro-15-Essential-Geotechnical-Formulas/","GeoStructPro 15","Geoteknik & Sipil"],
+        ["https://adikds.github.io/GEOSTRUCT-PRO-20-FORMULA-GEOTECHNICAL/","GeoStruct Pro 20","Geoteknik & Sipil"],
+        ["https://adikds.github.io/UNIFIED-SOIL-CLASSIFICATION-SYSTEM/","USCS Soil","Geoteknik & Sipil"],
+        ["https://adikds.github.io/WAY-APU-DAM/","Way Apu Dam","Bendungan & Hidrologi"],
+        ["https://adikds.github.io/INTEGRATED-DAM-ANALYTICS-ASSESSMENT-SYSTEM/","Dam Analytics","Bendungan & Hidrologi"],
+        ["https://adikds.github.io/SISTEM-MONITORING-SEISMIK-PERINGATAN-TSUNAMI/","Monitoring Seismik","Seismik & Mitigasi"],
+        ["https://adikds.github.io/MONITORING-PREDIKSI-STATUS-EI-NI-O-LA-NI-A/","El Nino La Nina","Klimatologi & Cuaca"],
+        ["https://adikds.github.io/MONITORING-PREDIKSI-ANGIN-MUSON-INDONESIA/","Monitoring Cuaca","Klimatologi & Cuaca"],
+        ["https://adikds.github.io/AERORADAR-PRO/","AeroRadar Pro","Radar & Navigasi"],
+        ["https://adikds.github.io/HYDRACANAL-PRO-GEOMETRIC-DESIGN/","HydraCanal Pro","Geoteknik & Sipil"],
+        ["https://adikds.github.io/EVENT-DRIVEN-ARCHITECTURE-FOR-AI-AGENTS/","EDA AI Agents","AI & Agent"],
+        ["https://adikds.github.io/edu-market-pro/","EduMarket Pro","Edukasi & Pasar"],
+        ["https://adikds.github.io/iptv-terminal/","IPTV Terminal","Media & Streaming"],
+        ["https://adikds.github.io/TV-streaming-live/","TV Streaming Live","Media & Streaming"],
+        ["https://adikds-byte.github.io/TB-SINAR-MURIA/","Aplikasi Kasir TB. Sinar Muria","Bisnis & Kasir"],
+        ["https://adikds-byte.github.io/SEBLAK-ASMARA/","Aplikasi Kasir","Bisnis & Kasir"],
+        ["https://adikds-byte.github.io/Aplikasi-Point-of-Sale-POS-sistem-kasir/","Aplikasi Sistem Kasir","Bisnis & Kasir"],
+        ["https://adikds.github.io/pos-system/","POS Terminal Pro","Bisnis & Kasir"],
+        ["https://adikds.github.io/Aplikasi_Point_of_Sale_-POS-_atau_sistem_kasir/","POS Kasir","Bisnis & Kasir"],
+        ["https://adikds.github.io/business-suite/","Business Suite","Bisnis & Manajemen"],
+        ["https://adikds.github.io/stock-manager/","Stock Manager","Bisnis & Manajemen"],
+        ["https://adikds.github.io/financial-planner/","Financial Planner","Keuangan & Finansial"],
+        ["https://adikds.github.io/KEUANGANKU/","Keuanganku","Keuangan & Finansial"],
+        ["https://adikds.github.io/DOKTER-AI/","DOKTER AI EXPERT","Medis & Kesehatan"],
+        ["https://adikds-byte.github.io/HabitFlow_Pro/","HabitFlow","Medis & Kesehatan"],
+        ["https://adikds-byte.github.io/APOTEK-DARUSSYIFA/","APOTIK DARUSSYIFA","Medis & Kesehatan"],
+        ["https://adikds.github.io/DARUSSYIFA-MEDIKA/","DARUSSYIFA V.5.0","Medis & Kesehatan"],
+        ["https://adikds.github.io/DARUSSYIFA_MEDIKA/","DARUSSYIFA V.2.0","Medis & Kesehatan"],
+        ["https://adikds.github.io/SMILE-SYIFA-AI/","SMILE SYIFA AI","Medis & Kesehatan"],
+        ["https://adikds.github.io/SKIN_SYIFA_AI/","SKIN SYIFA AI","Medis & Kesehatan"],
+        ["https://adikds.github.io/NEURO-PSYCH_AI/","NEURO-PSYCH AI","Medis & Kesehatan"],
+        ["https://adikds.github.io/-MEGA-ATLAS-FKG/","Mega Atlas FKG","Medis & Kesehatan"],
+        ["https://adikds.github.io/Mega-Atlas-Kedokteran-Neurologi-Bedah-Syaraf/","Neurology Atlas","Medis & Kesehatan"],
+        ["https://adikds-byte.github.io/NutriTrackID-Kuliner-Makro-Kalkulator/","NutriTrackID Kuliner Makro Kalkulator","Medis & Kesehatan"],
+        ["https://adikds.github.io/STATISTICS_for_ENGINEERS-/","Statistics Engineers","Teknik & Sains"],
+        ["https://adikds.github.io/AI-VIDEO-EDITOR/","AI Video Editor","Multimedia & AI"],
+        ["https://adikds.github.io/SIMULASI-DAN-JADWAL-SERTA-SCOR-WORLD-CUP-2026/","World Cup 2026","Olahraga & Hiburan"],
+        ["https://adikds.github.io/FREE-CLAUDE-CODE/","Free Claude Code","AI & Developer"],
+        ["https://adikds.github.io/konstruksi-ai/","KONAI Pro","Geoteknik & Sipil"],
+        ["https://adikds.github.io/pabrik-ai/","Pabrik AI Pro","AI & Industri"],
+        ["https://adikds.github.io/gudang-bulog/","Gudang Bulog FEM","Geoteknik & Sipil"],
+        ["https://adikds.github.io/Adi_Newbie/","ADI NEWBIE","Personal & Portofolio"],
+        ["https://famelack.com/radio/id","Famelack Radio ID","Media & Streaming"],
+        ["https://famelack.com/tv/id","Famelack TV ID","Media & Streaming"],
+        ["https://www.f15library.com/","F15 Library","Edukasi & Perpustakaan"],
+        ["https://adikds-byte.github.io/InaTEWS-Pro-v45/","InaTEWS Pro Tsunami","Seismik & Mitigasi"],
+        ["https://adikds-byte.github.io/Seismic_Site_Report_Pro/","Seismic Site Report Pro","Seismik & Mitigasi"],
+        ["https://adikds-byte.github.io/DSS-Sedimen-Pro-v4.81-Pro/","DSS Sedimen Pro","Pesisir & Sedimen"],
+        ["https://adikds-byte.github.io/COASTAL-SWI-ENGINE-PRO/","Coastal SWI Engine","Pesisir & Coastal SWI"],
+        ["https://adikds-byte.github.io/Indonesia_Dams_DSS/","Indonesia Dams DSS","Bendungan & Energy"],
+        ["https://adikds-byte.github.io/GeoStruct_Pro_Master_Edition/","GeoStruct Pro Master","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/SoilLabKit-Pro-Master-Edition-V7.0/","SoilLabKit Pro","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/kalkulator_budget_rumah_pro_v2.7/","Kalkulator Budget Rumah","Budget & Home"],
+        ["https://adikds-byte.github.io/GeoTestKit-PRO-V1.0/","GeoTestKit-PRO","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/AL-FALAK-RAMADAN-SIKLUS-33-TAHUN/","AL FALAK RAMADAN","Religi & Islami"],
+        ["https://adikds-byte.github.io/BENDUNGAN-TAILING-COMMAND-CENTRE/","Tailing Dam Command Centre","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/DCPKit-Pro/","DCPKit Pro","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/SoilLabKit-Pro-Master-Edition-V7.0/","SoilLabKit Pro","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/Simulasi-dan-Analisis-SaboDam/","SaboDam Analisis","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/SISTEM-SIMULASI-ANALISIS-STABILITAS-BENDUNGAN-BETON-GRAVITASI-TRAPESIUM-v5.6-PRO/","Gravity Dam Analisis","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/GEOSTRUCT-BUILDING-PRO-v7.0-Analisis-Struktur-/","Analisis Struktur","Geoteknik & Sipil"],
+        ["https://adikds-byte.github.io/HYDROPOWER-PRO-DSS-DESIGN-STUDIO-v9.0/","HYDROPOWER DSS DESIGN STUDIO","HydroPower & Sipil"],
+        ["https://adikds-byte.github.io/DSS-Bendungan-Poso-1-PLTA-Poso-515-MW-Poso-Energy/","HYDROPOWER DSS Poso Energy Simulasi","HydroPower & Sipil"],
+        ["https://adikds-byte.github.io/COASTAL-SWI-ENGINE-PRO/","COASTAL SWI ENGINE-PRO","Treatment Plant & Intake Seawater Intrusion"],
+        ["https://adikds-byte.github.io/MinePond-Studio-PRO/","COASTAL SWI ENGINE-PRO","Hidrologi & Sedimentasi"],
+        ["https://adikds-byte.github.io/kalkulator_budget_rumah_pro_v2.7/","Kalkulator Budget Rumah","Kalkulator & Rumah"],
+        ["https://adikds-byte.github.io/BuildRAB-AI-Estimasi-RAB-Kontrol-Budget-Analisis-Realisasi./","RAB Kontrol","Kalkulator & Rumah"],
+        ["https://newbieonline7.blogspot.com/","My Blog Engineering & AI","Blog Artikel & AI"]
     ];
 
+    let activeAppCategory = 'ALL';
+
+    function getCategoryMeta(cat) {
+        const c = (cat || '').toLowerCase();
+        if (c.includes('geoteknik') || c.includes('sipil') || c.includes('hydropower')) return { icon: 'fa-helmet-safety', color: 'text-amber-300 border-amber-500/40 bg-amber-950/40' };
+        if (c.includes('bendungan') || c.includes('hidrologi') || c.includes('pesisir') || c.includes('coastal') || c.includes('sedimen')) return { icon: 'fa-water', color: 'text-sky-300 border-sky-500/40 bg-sky-950/40' };
+        if (c.includes('seismik') || c.includes('klimatologi') || c.includes('radar')) return { icon: 'fa-house-tsunami', color: 'text-rose-300 border-rose-500/40 bg-rose-950/40' };
+        if (c.includes('medis') || c.includes('kesehatan')) return { icon: 'fa-stethoscope', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-950/40' };
+        if (c.includes('religi') || c.includes('islami')) return { icon: 'fa-mosque', color: 'text-teal-300 border-teal-500/40 bg-teal-950/40' };
+        if (c.includes('bisnis') || c.includes('kasir') || c.includes('keuangan') || c.includes('budget') || c.includes('kalkulator')) return { icon: 'fa-cash-register', color: 'text-yellow-300 border-yellow-500/40 bg-yellow-950/40' };
+        if (c.includes('ai')) return { icon: 'fa-robot', color: 'text-purple-300 border-purple-500/40 bg-purple-950/40' };
+        return { icon: 'fa-layer-group', color: 'text-lime-300 border-lime-500/40 bg-lime-950/40' };
+    }
+
+    function renderAppCategoryButtons() {
+        const bar = $('appCategoryFilterBar');
+        if (!bar) return;
+        const counts = {};
+        myAppsDirectory.forEach(item => {
+            const cat = item[2] || 'Lainnya';
+            counts[cat] = (counts[cat] || 0) + 1;
+        });
+        const categories = ['ALL', ...Object.keys(counts)];
+        bar.innerHTML = categories.map(cat => {
+            const isAct = activeAppCategory === cat;
+            const label = cat === 'ALL' ? `Semua (${myAppsDirectory.length})` : `${cat} (${counts[cat]})`;
+            return `<button type="button" onclick="selectAppCategory('${cat.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition cursor-pointer ${isAct ? 'bg-lime-500 text-slate-950 shadow' : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-700'}">${label}</button>`;
+        }).join('');
+    }
+
+    function selectAppCategory(cat) {
+        activeAppCategory = cat;
+        renderAppCategoryButtons();
+        renderAppsDirectory();
+    }
+
+    function resetAppDirectoryFilter() {
+        activeAppCategory = 'ALL';
+        const inp = $('appSearchInput');
+        if (inp) inp.value = '';
+        renderAppCategoryButtons();
+        renderAppsDirectory();
+    }
+
     function openAppsModal() {
-        renderAppsDirectory('');
+        renderAppCategoryButtons();
+        renderAppsDirectory();
         $('modalApps').classList.remove('hidden');
         $('modalApps').classList.add('flex');
     }
+
     function closeAppsModal() {
         $('modalApps').classList.add('hidden');
         $('modalApps').classList.remove('flex');
     }
-    function renderAppsDirectory(q = '') {
+
+    function renderAppsDirectory(customQuery) {
         const box = $('appsGridContainer');
-        const lower = q.toLowerCase();
-        const list = myAppsDirectory.filter(a => a.n.toLowerCase().includes(lower) || a.cat.toLowerCase().includes(lower));
-        box.innerHTML = list.map((a, i) => `
-            <a href="${a.u}" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-slate-900 border border-lime-500/40 hover:border-amber-400 flex justify-between items-center transition">
-                <div>
-                    <div class="font-bold text-white text-xs">#${i + 1} ${a.n}</div>
-                    <span class="text-[9.5px] text-lime-300">${a.cat}</span>
-                </div>
-                <i class="fa-solid fa-arrow-up-right-from-square text-amber-400 text-xs"></i>
-            </a>
-        `).join('');
+        if (!box) return;
+        const inp = $('appSearchInput');
+        const q = (customQuery !== undefined ? customQuery : (inp ? inp.value : '')).toLowerCase().trim();
+
+        const indexedList = myAppsDirectory.map((item, idx) => ({
+            idx: idx + 1,
+            u: item[0],
+            n: item[1],
+            cat: item[2]
+        })).filter(a => {
+            const matchCat = activeAppCategory === 'ALL' || a.cat === activeAppCategory;
+            const matchQ = !q || a.n.toLowerCase().includes(q) || a.cat.toLowerCase().includes(q) || a.u.toLowerCase().includes(q);
+            return matchCat && matchQ;
+        });
+
+        const badge = $('appResultCountBadge');
+        if (badge) badge.textContent = `${indexedList.length} / ${myAppsDirectory.length} Aplikasi`;
+
+        box.innerHTML = indexedList.map(a => {
+            const meta = getCategoryMeta(a.cat);
+            return `
+                <a href="${a.u}" target="_blank" rel="noopener noreferrer" class="p-3 rounded-xl bg-slate-900/95 border border-lime-500/35 hover:border-amber-400 hover:bg-slate-900 flex items-center justify-between gap-2.5 transition group">
+                    <div class="min-w-0 flex-1 space-y-1">
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-bold text-[10px] border border-amber-500/30">#${a.idx}</span>
+                            <div class="font-bold text-white text-xs truncate group-hover:text-amber-300 transition">${a.n}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[9.5px] font-semibold ${meta.color}">
+                                <i class="fa-solid ${meta.icon}"></i> ${a.cat}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-slate-950 border border-slate-700 group-hover:border-amber-400 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 flex items-center justify-center shrink-0 transition">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                    </div>
+                </a>
+            `;
+        }).join('');
     }
 
     function openCreatorModal() { $('creatorModal').classList.remove('hidden'); }
