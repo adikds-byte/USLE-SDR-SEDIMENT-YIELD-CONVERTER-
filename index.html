@@ -1,0 +1,2915 @@
+<!DOCTYPE html>
+<html lang="id" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <!-- ========================================================================= -->
+    <!-- INISIALISASI DINI: EARLY SECURITY GUARD & HUD CONTROLLER                  -->
+    <!-- Proteksi Ctrl+U, F12, DevTools, Klik Kanan & Notifikasi Taktis Audio      -->
+    <!-- ========================================================================= -->
+    <script id="usleSdrSecurityGuard">
+    (function() {
+        'use strict';
+        var attemptCount = 0;
+        var toastTimeout = null;
+        var progressInterval = null;
+
+        function playSecurityTone() {
+            try {
+                var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                var ctx = new AudioContextClass();
+                if (ctx.state === 'suspended') ctx.resume();
+                var now = ctx.currentTime;
+
+                var osc1 = ctx.createOscillator();
+                var gain1 = ctx.createGain();
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(880, now);
+                osc1.frequency.exponentialRampToValueAtTime(440, now + 0.14);
+                gain1.gain.setValueAtTime(0.08, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.15);
+
+                var osc2 = ctx.createOscillator();
+                var gain2 = ctx.createGain();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(520, now + 0.08);
+                osc2.frequency.exponentialRampToValueAtTime(220, now + 0.24);
+                gain2.gain.setValueAtTime(0.06, now);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.08);
+                osc2.stop(now + 0.25);
+            } catch(e) {}
+        }
+
+        function showSecurityToastHUD(violationType, actionTitle, explanationText) {
+            attemptCount++;
+            playSecurityTone();
+            var now = new Date();
+            var timeStr = now.toLocaleTimeString('id-ID').replace(/:/g, '.') + ' WIB';
+
+            var existingHud = document.getElementById('damSecurityToastHUD');
+            if (existingHud) {
+                var badge = document.getElementById('secHudAttemptBadge');
+                if (badge) badge.innerText = 'Percobaan ke-' + attemptCount;
+                var titleEl = document.getElementById('secHudActionTitle');
+                if (titleEl) titleEl.innerText = actionTitle;
+                var expEl = document.getElementById('secHudExplanation');
+                if (expEl) expEl.innerText = explanationText;
+                var timeEl = document.getElementById('secHudTimestamp');
+                if (timeEl) timeEl.innerText = timeStr;
+                resetCountdown(3800);
+                return;
+            }
+
+            var hud = document.createElement('div');
+            hud.id = 'damSecurityToastHUD';
+            hud.className = 'dam-sec-hud';
+            hud.innerHTML = [
+                '<div class="sec-hud-card">',
+                '  <div class="sec-hud-header">',
+                '    <div class="sec-hud-title-group">',
+                '      <div class="sec-hud-icon-wrap"><i class="fa-solid fa-shield-halved sec-shield-icon"></i></div>',
+                '      <div>',
+                '        <div class="sec-hud-title">PROTOKOL KEAMANAN USLE–SDR SEDIMEN PRO</div>',
+                '        <div class="sec-hud-subtitle">EARLY GUARD V2.5 • INTEGRITAS ALGORITMA DAS JRAGUNG & TUNTANG</div>',
+                '      </div>',
+                '    </div>',
+                '    <div class="sec-hud-ctrls">',
+                '      <span id="secHudAttemptBadge" class="sec-badge-attempt">Percobaan ke-' + attemptCount + '</span>',
+                '      <button type="button" class="sec-hud-close-btn" onclick="window.USLE_SDR_GUARD.dismiss()"><i class="fa-solid fa-xmark"></i></button>',
+                '    </div>',
+                '  </div>',
+                '  <div class="sec-hud-body">',
+                '    <div class="sec-action-banner">',
+                '      <i class="fa-solid fa-ban text-rose-400"></i>',
+                '      <span id="secHudActionTitle" class="sec-action-title">' + actionTitle + '</span>',
+                '    </div>',
+                '    <p id="secHudExplanation" class="sec-explanation">' + explanationText + '</p>',
+                '  </div>',
+                '  <div class="sec-hud-footer">',
+                '    <div class="sec-meta-left"><span class="sec-meta-dot"></span><span>Model USLE–SDR & Hak Cipta Ir. Mohamad Hartadi Terlindungi</span></div>',
+                '    <div id="secHudTimestamp" class="sec-timestamp">' + timeStr + '</div>',
+                '  </div>',
+                '  <div class="sec-progress-track"><div id="secProgressBar" class="sec-progress-bar"></div></div>',
+                '</div>'
+            ].join('\n');
+
+            (document.body || document.documentElement).appendChild(hud);
+            resetCountdown(3800);
+        }
+
+        function resetCountdown(durationMs) {
+            if (toastTimeout) clearTimeout(toastTimeout);
+            if (progressInterval) clearInterval(progressInterval);
+            var bar = document.getElementById('secProgressBar');
+            if (bar) {
+                bar.style.width = '100%';
+                var startTime = Date.now();
+                progressInterval = setInterval(function() {
+                    var elapsed = Date.now() - startTime;
+                    var remaining = Math.max(0, 1 - (elapsed / durationMs));
+                    if (bar) bar.style.width = (remaining * 100) + '%';
+                    if (elapsed >= durationMs) clearInterval(progressInterval);
+                }, 40);
+            }
+            toastTimeout = setTimeout(dismissHUD, durationMs);
+        }
+
+        function dismissHUD() {
+            if (progressInterval) clearInterval(progressInterval);
+            var hud = document.getElementById('damSecurityToastHUD');
+            if (hud && hud.parentNode) hud.parentNode.removeChild(hud);
+        }
+
+        function handleSecurityKeydown(e) {
+            var key = (e.key || '').toLowerCase();
+            var keyCode = e.keyCode || e.which;
+            var isCtrl = e.ctrlKey || e.metaKey;
+            var isShift = e.shiftKey;
+            var isAlt = e.altKey;
+
+            if (isCtrl && (key === 'u' || keyCode === 85)) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('VIEW_SOURCE', 'AKSES KODE SUMBER DIBLOKIR: Ctrl + U', 'Pemeriksaan kode sumber dinonaktifkan untuk melindungi model konversi erosi USLE–SDR DAS Jragung & Tuntang.');
+                return false;
+            }
+            if (key === 'f12' || keyCode === 123 || (isCtrl && (isShift || isAlt) && ['i','j','c','k'].includes(key))) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('DEVTOOLS', 'AKSES DEVTOOLS DIBLOKIR', 'Inspeksi elemen dinonaktifkan demi menjaga integritas parameter USLE, SDR, Arnoldus, dan pasokan sedimen Qs,in.');
+                return false;
+            }
+            if (isCtrl && !isShift && (key === 's' || keyCode === 83)) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('SAVE_PAGE', 'PENYIMPANAN HALAMAN DIBLOKIR: Ctrl + S', 'Gunakan menu resmi Ekspor Laporan Word (.doc), JSON DSS, CSV, atau Unduh Blueprint PNG.');
+                return false;
+            }
+        }
+
+        function handleSecurityContextMenu(e) {
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+            e.preventDefault(); e.stopPropagation();
+            showSecurityToastHUD('CONTEXT_MENU', 'PROTEKSI KLIK KANAN AKTIF', 'Menu konteks dinonaktifkan. Gunakan kontrol Zoom (+/-) atau drag langsung pada Bumi 3D dan tombol ekspor resmi.');
+            return false;
+        }
+
+        window.addEventListener('keydown', handleSecurityKeydown, true);
+        window.addEventListener('contextmenu', handleSecurityContextMenu, true);
+
+        window.USLE_SDR_GUARD = {
+            version: '2.5.0-USLE-SDR-PRO',
+            triggerViolation: showSecurityToastHUD,
+            dismiss: dismissHUD
+        };
+    })();
+    </script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USLE–SDR SEDIMENT YIELD CONVERTER v2.5 PRO — COMMAND CENTER DAS JRAGUNG & TUNTANG KE PASOKAN SEDIMEN SUNGAI</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        tech: ['Orbitron', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        arabic: ['Amiri', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Leaflet GIS & Three.js r128 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-main: #030712;
+            --bg-card: rgba(11, 20, 38, 0.90);
+            --bg-header: rgba(12, 35, 64, 0.92);
+            --border-color: rgba(2, 132, 199, 0.42);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        html:not(.dark) {
+            --bg-main: #f1f5f9;
+            --bg-card: rgba(255, 255, 255, 0.94);
+            --bg-header: rgba(12, 35, 64, 0.98);
+            --border-color: rgba(2, 132, 199, 0.45);
+            --text-main: #0f172a;
+            --text-muted: #475569;
+        }
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .font-tech { font-family: 'Orbitron', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .font-arabic { font-family: 'Amiri', serif; direction: rtl; }
+
+        .cmd-card {
+            background: var(--bg-card);
+            border: 1.5px solid var(--border-color);
+            border-radius: 1rem;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.65);
+            transition: all 0.25s ease;
+        }
+        .cmd-card:hover {
+            border-color: rgba(14, 165, 233, 0.78);
+            box-shadow: 0 0 25px rgba(2, 132, 199, 0.22);
+        }
+
+        .blueprint-grid {
+            background-color: #06192e;
+            background-image:
+                linear-gradient(rgba(56, 189, 248, 0.16) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.16) 1px, transparent 1px),
+                linear-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.07) 1px, transparent 1px);
+            background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+        }
+
+        /* Security Guard HUD Styles */
+        .dam-sec-hud {
+            position: fixed; top: 20px; right: 20px; width: min(430px, calc(100vw - 24px));
+            z-index: 100050; pointer-events: auto;
+        }
+        .sec-hud-card {
+            background: linear-gradient(135deg, rgba(12, 35, 64, 0.98), rgba(3, 7, 18, 0.98), rgba(28, 10, 18, 0.98));
+            border: 1.5px solid #0284c7; border-radius: 14px;
+            box-shadow: 0 0 30px rgba(2, 132, 199, 0.4), 0 20px 50px rgba(0,0,0,0.9);
+            overflow: hidden;
+        }
+        .sec-hud-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: rgba(2, 132, 199, 0.2);
+            border-bottom: 1px solid rgba(2, 132, 199, 0.35);
+        }
+        .sec-hud-title-group { display: flex; align-items: center; gap: 10px; }
+        .sec-hud-icon-wrap {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: rgba(2, 132, 199, 0.25); border: 1px solid #38bdf8;
+            display: flex; align-items: center; justify-content: center; color: #38bdf8;
+        }
+        .sec-hud-title { font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 900; color: #fff; }
+        .sec-hud-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #7dd3fc; }
+        .sec-hud-ctrls { display: flex; align-items: center; gap: 6px; }
+        .sec-badge-attempt {
+            font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 800;
+            color: #fde047; background: rgba(133, 77, 14, 0.5); border: 1px solid #facc15;
+            padding: 2px 6px; border-radius: 5px;
+        }
+        .sec-hud-close-btn {
+            width: 24px; height: 24px; border-radius: 6px; background: rgba(15,23,42,0.8);
+            border: 1px solid #0284c7; color: #bae6fd; cursor: pointer;
+        }
+        .sec-hud-body { padding: 12px 14px; }
+        .sec-action-banner {
+            display: flex; align-items: center; gap: 8px; background: rgba(244, 63, 94, 0.18);
+            border-left: 3.5px solid #f43f5e; padding: 6px 10px; border-radius: 0 6px 6px 0; margin-bottom: 8px;
+        }
+        .sec-action-title { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 800; color: #ffe4e6; }
+        .sec-explanation { font-size: 11px; color: #cbd5e1; line-height: 1.45; margin: 0; }
+        .sec-hud-footer {
+            display: flex; justify-content: space-between; padding: 7px 14px;
+            background: rgba(3,7,18,0.7); font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #38bdf8;
+        }
+        .sec-meta-left { display: flex; align-items: center; gap: 6px; }
+        .sec-meta-dot { width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; }
+        .sec-progress-track { width: 100%; height: 3px; background: #0f172a; }
+        .sec-progress-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #0284c7, #10b981, #f59e0b); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(3, 7, 18, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(2, 132, 199, 0.5); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0284c7; }
+
+        #mineHdrToolbar .hdr-chip { height:36px; display:inline-flex; align-items:center; gap:7px; padding:0 13px; border-radius:11px; font-size:11px; white-space:nowrap; cursor:pointer; transition:all .15s; flex-shrink:0 }
+        #mineHdrToolbar .hdr-ico { height:36px; width:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:11px; padding:0; cursor:pointer; transition:all .15s; flex-shrink:0 }
+
+        /* Tables & Forms */
+        table.eng-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        table.eng-table th {
+            font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #7dd3fc;
+            text-align: left; padding: 8px 9px; border-bottom: 1.5px solid rgba(56, 189, 248, 0.35);
+            background: rgba(15, 23, 42, 0.7); font-weight: 700; white-space: nowrap;
+        }
+        table.eng-table td {
+            padding: 6px 9px; border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        table.eng-table td.n, table.eng-table th.n { text-align: right; }
+        table.eng-table tr:hover td { background: rgba(14, 165, 233, 0.08); }
+        table.eng-table td input {
+            width: 100%; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 5px; color: #f8fafc; font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px; padding: 3px 6px; outline: none; text-align: right;
+        }
+        table.eng-table td input.txt { text-align: left; font-family: 'Inter', sans-serif; }
+        table.eng-table td input:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25); }
+
+        .tag-pill { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 1px solid; display: inline-block; }
+        .tag-ok { color: #4ade80; border-color: #166534; background: rgba(5, 46, 22, 0.85); }
+        .tag-warn { color: #fbbf24; border-color: #92400e; background: rgba(69, 26, 3, 0.85); }
+        .tag-bad { color: #f87171; border-color: #991b1b; background: rgba(69, 10, 10, 0.85); }
+
+        .earth-interactive-canvas { cursor: grab; touch-action: none; }
+        .earth-interactive-canvas:active { cursor: grabbing; }
+
+        /* Citation Reference Badges in Chatbot */
+        .ref-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;
+            text-decoration: none; transition: all 0.15s ease;
+        }
+        .ref-badge:hover { transform: translateY(-1px); filter: brightness(1.15); }
+        .ref-wiki { background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+        .ref-google { background: rgba(59,130,246,0.22); color: #93c5fd; border: 1px solid rgba(59,130,246,0.45); }
+        .ref-scholar { background: rgba(16,185,129,0.22); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.45); }
+        .ref-ai { background: rgba(168,85,247,0.22); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.45); }
+
+        /* Print / Word Preview Styling */
+        .rep-doc { background: #ffffff; color: #0f172a; padding: 28px 34px; border-radius: 12px; font-size: 12px; line-height: 1.65; }
+        .rep-doc h1 { font-size: 16px; font-weight: 800; color: #0c2340; margin-bottom: 4px; }
+        .rep-doc h2 { font-size: 12px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 6px; border-bottom: 2px solid #cbd5e1; padding-bottom: 3px; }
+        .rep-doc table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+        .rep-doc th { background: #e2e8f0; color: #0f172a; padding: 5px 8px; border: 1px solid #94a3b8; text-align: left; }
+        .rep-doc td { padding: 5px 8px; border: 1px solid #cbd5e1; color: #1e293b; }
+
+        #mainWorkspaceWrapper { transition: opacity 0.4s ease, transform 0.4s ease; }
+        #mainWorkspaceWrapper.earth-free-view { opacity: 0.06; pointer-events: none; transform: scale(0.98); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-amber-400 selection:text-slate-950 pb-20">
+
+    <!-- ========================================================================= -->
+    <!-- 0. BACKGROUND REALISTIS ORBIT BUMI & AWAN 3D (THREE.JS INTERAKTIF + ZOOM) -->
+    <!-- ========================================================================= -->
+    <div id="bgEarthContainer" class="fixed inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_center,_#07162c_0%,_#020617_75%,_#01030a_100%)]">
+        <div id="bgEarthCanvas" class="w-full h-full earth-interactive-canvas" title="Geser untuk memutar Bumi 3D • Scroll roda mouse untuk Zoom In/Out"></div>
+    </div>
+
+    <!-- FLOATING HUD ZOOM & ORBIT BUMI 3D UNTUK BACKGROUND UTAMA -->
+    <div class="fixed bottom-4 left-4 z-[1050] flex items-center gap-1.5 bg-slate-950/90 backdrop-blur-md border border-sky-500/50 px-3 py-1.5 rounded-full shadow-2xl font-mono text-[11px]">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="text-sky-300 font-bold hidden sm:inline mr-1">BUMI 3D:</span>
+        <button type="button" onclick="zoomActiveEarth(-5)" class="w-7 h-7 rounded-full bg-slate-800 hover:bg-sky-600 text-white font-bold border border-sky-500/40 flex items-center justify-center transition cursor-pointer" title="Zoom In Bumi 3D (+)">+</button>
+        <button type="button" onclick="zoomActiveEarth(5)" class="w-7 h-7 rounded-full bg-slate-800 hover:bg-sky-600 text-white font-bold border border-sky-500/40 flex items-center justify-center transition cursor-pointer" title="Zoom Out Bumi 3D (-)">−</button>
+        <button type="button" onclick="resetActiveEarth()" class="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-amber-300 hover:text-white font-bold border border-amber-500/40 flex items-center justify-center transition cursor-pointer" title="Reset Zoom & Fokus Jawa">⟲</button>
+        <span id="bgZoomBadge" class="text-[10px] text-amber-300 font-bold px-1.5">100%</span>
+        <button type="button" id="btnToggleFreeEarthBg" onclick="toggleBackgroundEarthFreeMode()" class="px-2.5 py-1 rounded-full bg-sky-900/80 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-400/50 text-[10px] font-bold transition cursor-pointer">
+            🌍 Eksplorasi Penuh
+        </button>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 1. BOOT LOADING SCREEN PENUH DENGAN BUMI & AWAN 3D REALISTIS (BISA ZOOM)  -->
+    <!-- ========================================================================= -->
+    <div id="loadingOverlay" class="fixed inset-0 z-[10000] bg-slate-950 text-white flex flex-col items-center justify-between p-4 sm:p-6 transition-opacity duration-700 select-none overflow-hidden">
+        <!-- Full Viewport Interactive 3D Earth & Clouds Canvas inside Loading Screen -->
+        <div id="loadingEarthCanvas" class="absolute inset-0 w-full h-full z-0 earth-interactive-canvas" title="Geser Mouse/Layar untuk Memutar Bumi 3D • Scroll Roda Mouse untuk Zoom In / Zoom Out"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_28%,rgba(2,6,23,0.78)_100%)] pointer-events-none z-[1]"></div>
+
+        <!-- TOP HEADER ON LOADING SCREEN -->
+        <div class="relative z-10 text-center mt-1 space-y-2 max-w-4xl mx-auto pointer-events-auto">
+            <div class="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-sky-500/50 text-xs font-mono text-sky-300 shadow-lg backdrop-blur-md">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                <span id="loadingClock">Memuat Hari &amp; Waktu Real-Time WIB...</span>
+                <span class="text-emerald-400 font-bold">| 🖱️ INTERAKTIF: SCROLL UNTUK ZOOM &amp; DRAG UNTUK PUTAR BUMI 3D</span>
+            </div>
+            <h2 class="text-lg sm:text-2xl md:text-3xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-sky-300 to-emerald-400 flex items-center justify-center gap-2.5 font-tech uppercase drop-shadow-lg">
+                <i class="fa-solid fa-earth-asia text-sky-400"></i> USLE–SDR SEDIMENT YIELD COMMAND PRO v2.5
+            </h2>
+            <p class="text-xs text-slate-200 font-mono bg-slate-950/60 px-3 py-1 rounded-lg inline-block border border-slate-800">
+                Simulasi Konversi Erosi Lahan (USLE), Rasio Pengiriman Sedimen (SDR) &amp; Pasokan Sedimen Sungai DAS Jragung &amp; Tuntang
+            </p>
+        </div>
+
+        <!-- INTERACTIVE 3D ZOOM HUD BAR RIGHT ON THE LOADING SCREEN -->
+        <div class="relative z-10 my-auto flex flex-col items-center pointer-events-none">
+            <!-- Empty middle area lets the huge 3D Earth & Clouds shine unobstructed -->
+            <div class="w-56 h-56 sm:w-72 sm:h-72 rounded-full border border-sky-400/20 pointer-events-none flex items-end justify-center pb-2">
+                <span class="text-[10px] font-mono text-sky-300/80 bg-slate-950/75 px-2.5 py-0.5 rounded-full border border-sky-500/30">
+                    📍 Target Orbit: Pulau Jawa (DAS Jragung &amp; Tuntang)
+                </span>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center justify-center gap-2 bg-slate-950/85 backdrop-blur-md border border-sky-500/50 px-4 py-2 rounded-full shadow-2xl pointer-events-auto font-mono text-xs">
+                <span class="text-sky-300 font-bold text-[11px]"><i class="fa-solid fa-magnifying-glass-location mr-1 text-amber-400"></i>Kontrol Zoom 3D:</span>
+                <button type="button" onclick="zoomEarthInstance(bootEarthObj, -6)" class="px-2.5 py-1 rounded-full bg-sky-700 hover:bg-sky-500 text-white font-bold transition cursor-pointer">+ Zoom In</button>
+                <button type="button" onclick="zoomEarthInstance(bootEarthObj, 6)" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-sky-600 text-white font-bold border border-sky-500/40 transition cursor-pointer">− Zoom Out</button>
+                <button type="button" onclick="resetEarthInstance(bootEarthObj)" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-amber-600 text-amber-300 hover:text-white font-bold border border-amber-500/40 transition cursor-pointer">⟲ Reset</button>
+                <button type="button" id="btnHoldBootScreen" onclick="toggleHoldBootScreen()" class="px-3 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold border border-amber-400/60 transition cursor-pointer">
+                    ⏸ Tahan Loading (Eksplorasi 3D)
+                </button>
+            </div>
+        </div>
+
+        <!-- BOTTOM PROGRESS & ACTION CARD ON LOADING SCREEN -->
+        <div class="relative z-10 w-full max-w-xl text-center mb-1 space-y-2.5 bg-slate-950/85 backdrop-blur-xl border border-sky-500/40 p-4 rounded-2xl shadow-2xl pointer-events-auto">
+            <div class="flex justify-between text-xs text-slate-300 font-mono mb-1">
+                <span id="loadingStatusText">Menginisialisasi tekstur Blue Marble NASA, Awan 3D &amp; 13 Unit Lahan DAS...</span>
+                <span id="loadingPercent" class="text-sky-400 font-bold">25%</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                <div id="loadingProgressBar" class="h-full bg-gradient-to-r from-amber-500 via-sky-400 to-emerald-400 rounded-full w-1/4 transition-all duration-300"></div>
+            </div>
+            <div class="pt-1 flex flex-wrap items-center justify-center gap-3">
+                <button type="button" onclick="dismissLoadingScreen()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-sky-500 to-emerald-500 hover:brightness-110 text-slate-950 font-black font-mono text-xs inline-flex items-center gap-2 shadow-lg shadow-sky-500/30 transition transform active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-shield-halved"></i> MASUK KE SISTEM MONITORING USLE–SDR
+                </button>
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono pt-0.5">
+                "Kementerian PUPR — Sigap Membangun Negeri • DAS Jragung &amp; Tuntang → DSS Sedimen Pro • Ir. Mohamad Hartadi"
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 2. SCREENSAVER 3D EARTH REALISTIS (BISA ZOOM) + MOTIVASI, KATA BIJAK & DOA-->
+    <!-- ========================================================================= -->
+    <div id="screensaverOverlay" class="fixed inset-0 z-[9800] bg-slate-950/95 backdrop-blur-lg text-white hidden flex-col items-center justify-between p-4 sm:p-6 select-none transition-opacity duration-500 overflow-hidden">
+        <!-- Full Viewport Interactive 3D Earth in Screensaver -->
+        <div id="ssEarthCanvas" class="absolute inset-0 w-full h-full z-0 earth-interactive-canvas" title="Scroll untuk Zoom In/Out Bumi 3D • Drag untuk memutar Bumi"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(2,6,23,0.82)_100%)] pointer-events-none z-[1]"></div>
+
+        <!-- Top Header in Screensaver -->
+        <div class="w-full flex flex-wrap items-center justify-between gap-2 z-20 px-2 sm:px-6 pointer-events-auto">
+            <div class="flex items-center space-x-3 bg-slate-950/80 border border-sky-500/40 px-3.5 py-2 rounded-xl backdrop-blur-md">
+                <div class="w-9 h-9 rounded-xl bg-sky-600/30 border border-sky-400/50 flex items-center justify-center text-sky-300 text-lg shadow">
+                    <i class="fa-solid fa-earth-asia"></i>
+                </div>
+                <div>
+                    <div class="text-xs sm:text-sm font-bold text-white font-tech">SCREENSAVER 3D INTERAKTIF — BUMI, AWAN, MOTIVASI, KATA BIJAK &amp; DOA</div>
+                    <div class="text-[11px] text-sky-300 font-mono">Gunakan Roda Scroll Mouse atau tombol (+/-) untuk Zoom Bumi 3D • Drag untuk Memutar</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="zoomEarthInstance(ssEarthObj, -6)" class="px-3 py-2 rounded-xl bg-sky-600/30 hover:bg-sky-600 border border-sky-400/50 text-xs font-bold text-white transition cursor-pointer font-mono">+ Zoom In</button>
+                <button type="button" onclick="zoomEarthInstance(ssEarthObj, 6)" class="px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-sky-600 border border-sky-400/50 text-xs font-bold text-white transition cursor-pointer font-mono">− Zoom Out</button>
+                <button type="button" onclick="resetEarthInstance(ssEarthObj)" class="px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-amber-600 border border-amber-400/50 text-xs font-bold text-amber-300 hover:text-white transition cursor-pointer font-mono">⟲ Reset</button>
+                <button type="button" onclick="toggleScreensaver(false)" class="px-4 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-500 border border-rose-400 text-xs font-bold text-white transition flex items-center gap-1.5 cursor-pointer font-mono shadow-lg">
+                    <i class="fa-solid fa-xmark"></i> Kembali ke Dasbor
+                </button>
+            </div>
+        </div>
+
+        <!-- Center Clock & Live DAS Status Banner -->
+        <div class="relative z-20 flex flex-col items-center text-center max-w-4xl px-4 space-y-1.5 my-auto pointer-events-none">
+            <div id="screensaverClock" class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-white to-sky-200 font-tech drop-shadow-[0_5px_25px_rgba(0,0,0,0.9)]">
+                00:00:00
+            </div>
+            <div id="screensaverDate" class="text-xs sm:text-base font-bold text-sky-400 uppercase tracking-widest font-mono drop-shadow">
+                Memuat Hari &amp; Tanggal...
+            </div>
+            <div id="screensaverStatus" class="text-[11px] text-amber-300 font-mono tracking-wider uppercase font-bold bg-slate-950/90 px-4 py-1.5 rounded-full border border-amber-500/50 shadow-lg">
+                STATUS DAS JRAGUNG &amp; TUNTANG: TERKALIBRASI • PASOKAN SEDIMEN SIAP INTEGRASI DSS
+            </div>
+        </div>
+
+        <!-- Bottom Interactive Card: MOTIVASI, KATA BIJAK & DOA -->
+        <div class="z-20 w-full max-w-4xl mx-auto px-2 mb-1 pointer-events-auto">
+            <div class="bg-slate-950/90 border-2 border-sky-500/50 p-4 sm:p-5 rounded-2xl shadow-2xl backdrop-blur-xl space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5 font-mono text-xs">
+                    <div class="flex flex-wrap items-center gap-1.5" id="ssCatTabs">
+                        <button type="button" onclick="setWisdomCategory('all')" data-wcat="all" class="px-3 py-1 rounded-lg bg-sky-600 text-white font-bold cursor-pointer">✨ Semua (10)</button>
+                        <button type="button" onclick="setWisdomCategory('doa')" data-wcat="doa" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer">🤲 Doa &amp; Keberkahan</button>
+                        <button type="button" onclick="setWisdomCategory('motivasi')" data-wcat="motivasi" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer">🚀 Motivasi Insinyur</button>
+                        <button type="button" onclick="setWisdomCategory('bijak')" data-wcat="bijak" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer">🌿 Kata Bijak Alam &amp; Air</button>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="speakCurrentWisdom()" class="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer flex items-center gap-1">
+                            <i class="fa-solid fa-volume-high"></i> Dengarkan
+                        </button>
+                        <button type="button" onclick="stepWisdom(-1)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 cursor-pointer">◀</button>
+                        <span id="ssWisdomCounter" class="text-amber-300 font-bold px-1.5">1 / 10</span>
+                        <button type="button" onclick="stepWisdom(1)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 cursor-pointer">▶</button>
+                    </div>
+                </div>
+
+                <div class="text-center space-y-1.5 py-1">
+                    <div class="flex items-center justify-center gap-2">
+                        <span id="ssWisdomBadge" class="tag-pill tag-ok uppercase">DOA &amp; KEBERKAHAN ILMU</span>
+                        <span id="ssWisdomTitle" class="text-xs font-mono font-bold text-amber-300">Doa Memohon Ilmu yang Bermanfaat &amp; Amal Diterima</span>
+                    </div>
+                    <div id="ssWisdomArabic" class="font-arabic text-xl sm:text-2xl text-amber-200 py-1 tracking-wide">
+                        اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا، وَرِزْقًا طَيِّبًا، وَعَمَلًا مُتَقَبَّلًا
+                    </div>
+                    <div id="ssWisdomLatin" class="text-xs italic text-sky-200/90 font-sans">
+                        "Allahumma inni as'aluka 'ilman nafi'an, wa rizqan thayyiban, wa 'amalan mutaqabbalan."
+                    </div>
+                    <p id="ssWisdomText" class="text-xs sm:text-sm font-medium text-slate-100 leading-relaxed font-sans max-w-3xl mx-auto">
+                        "Ya Allah, sesungguhnya aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik, dan amal karya keteknikan yang diterima di sisi-Mu."
+                    </p>
+                    <div id="ssWisdomSource" class="text-[11px] font-mono text-slate-400 pt-1">
+                        — HR. Ibnu Majah • Renungan Insinyur Sumber Daya Air &amp; Konservasi DAS
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP ACCENT BAR -->
+    <div class="h-1.5 w-full bg-gradient-to-r from-amber-500 via-sky-400 to-emerald-500 shadow-[0_0_20px_rgba(2,132,199,0.6)] relative z-20"></div>
+
+    <!-- ========================================================================= -->
+    <!-- 3. HEADER COMMAND CENTER & WORKSPACE UTAMA                                -->
+    <!-- ========================================================================= -->
+    <div id="mainWorkspaceWrapper" class="w-full max-w-[1800px] mx-auto p-3 md:p-4 flex-1 flex flex-col gap-4 relative z-10">
+
+        <!-- COMMAND HEADER -->
+        <header class="w-full bg-[var(--bg-header)] backdrop-blur-md p-3 md:p-4 rounded-2xl border-2 border-[var(--border-color)] shadow-xl flex flex-col gap-2.5">
+            <div class="flex items-center gap-3 w-full min-w-0">
+                <div class="p-2 bg-amber-400 rounded-xl text-slate-950 shrink-0 shadow-lg font-black font-tech text-xl flex items-center justify-center w-12 h-12">
+                    <i class="fa-solid fa-mountain-sun"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="bg-amber-500 text-slate-950 text-[10px] font-mono px-2 py-0.5 rounded font-black uppercase tracking-wider">HIDROLOGI &amp; SEDIMEN PRO</span>
+                        <span class="bg-blue-900/90 text-sky-300 border border-sky-500/50 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">DAS JRAGUNG &amp; TUNTANG • JAWA TENGAH</span>
+                        <span id="chipDas" class="bg-slate-900 text-emerald-300 border border-emerald-600/60 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">13 UNIT LAHAN • 673,96 KM²</span>
+                    </div>
+                    <h1 class="font-tech text-sm md:text-lg font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-amber-300 leading-tight uppercase mt-1">
+                        USLE–SDR SEDIMENT YIELD CONVERTER — KONVERSI EROSI DAS KE PASOKAN SEDIMEN SUNGAI (DSS SEDIMEN PRO)
+                        <span class="text-amber-400 text-xs align-top">v2.5 PRO</span>
+                    </h1>
+                    <p class="hidden md:flex text-[10px] font-mono text-slate-300 mt-0.5 items-center gap-2 font-bold">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                        <span>Rantai Konversi: Erosi Lahan (USLE: A=R·K·LS·C·P) → Pengiriman Sedimen (SDR=α·A^β) → Trap Efficiency → Volume Qs,in &amp; Distribusi Arnoldus</span>
+                    </p>
+                </div>
+                <div class="hidden sm:flex items-center bg-slate-950/90 border border-sky-500/40 px-3.5 shrink-0 shadow-lg rounded-xl" style="height:52px;">
+                    <i class="fa-regular fa-clock text-amber-400 animate-pulse text-lg mr-2.5"></i>
+                    <div class="flex flex-col text-left">
+                        <span id="topDashDate" class="text-[10px] font-bold text-slate-400 font-mono uppercase">Memuat Hari...</span>
+                        <span id="topDashTime" class="text-sm md:text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-sky-400 font-tech tracking-widest">00:00:00 WIB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BARIS 2: TOOLBAR SKENARIO & FITUR UTAMA -->
+            <div id="mineHdrToolbar" class="flex flex-wrap items-center gap-2 w-full justify-between font-mono text-[11px] border-t border-sky-900/60 pt-2.5">
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" onclick="applyDasPreset('baseline')" id="btnPresetBase" class="hdr-chip bg-sky-900 text-white border border-sky-400 font-bold">
+                        <i class="fa-solid fa-layer-group text-amber-400"></i><span>1. BASELINE 2 DAS (13 UNIT)</span>
+                    </button>
+                    <button type="button" onclick="applyDasPreset('calibrated')" id="btnPresetCal" class="hdr-chip bg-slate-800 text-slate-300 border border-slate-700 hover:text-white font-bold">
+                        <i class="fa-solid fa-bullseye text-emerald-400"></i><span>2. KALIBRASI SSC (105 MG/L)</span>
+                    </button>
+                    <button type="button" onclick="applyDasPreset('konservasi')" id="btnPresetKons" class="hdr-chip bg-slate-800 text-slate-300 border border-slate-700 hover:text-white font-bold">
+                        <i class="fa-solid fa-seedling text-lime-400"></i><span>3. SKENARIO REBOISASI &amp; SABO DAM</span>
+                    </button>
+                    <button type="button" onclick="openWordReportsModal()" class="hdr-chip bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-500/70 font-bold">
+                        <i class="fa-solid fa-file-word text-amber-400"></i><span>LAPORAN WORD (13)</span>
+                    </button>
+                    <button type="button" onclick="downloadBlueprintPNG()" class="hdr-chip bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/70 font-bold">
+                        <i class="fa-solid fa-download text-cyan-400"></i><span>UNDUH BLUEPRINT PNG</span>
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" onclick="openAppsModal()" class="hdr-chip bg-gradient-to-r from-amber-500 via-lime-500 to-emerald-500 hover:brightness-110 text-slate-950 font-black">
+                        <i class="fa-solid fa-cubes-stacked"></i><span>MY APLIKASI (61)</span>
+                    </button>
+                    <button type="button" onclick="openCreatorModal()" class="hdr-chip bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/50 font-bold">
+                        <i class="fa-solid fa-user-tie"></i><span>PENELITI/DEV</span>
+                    </button>
+                    <button type="button" onclick="toggleScreensaver(true)" class="hdr-chip bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-400/60 font-bold" title="Buka Screensaver Bumi 3D Interaktif + Doa & Motivasi">
+                        <i class="fa-solid fa-earth-asia text-sky-400"></i><span>SCREENSAVER 3D &amp; DOA</span>
+                    </button>
+                    <button type="button" onclick="toggleThemeMode()" class="hdr-ico bg-slate-900 border border-slate-700 text-amber-400" title="Ganti Tema Gelap/Terang"><i id="themeIcon" class="fa-solid fa-moon"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 4. 6 KARTU METRIK EKSEKUTIF USLE–SDR -->
+        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 font-mono">
+            <div class="cmd-card p-3.5 border-l-4 border-l-amber-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>① Erosi Bruto DAS</span>
+                    <i class="fa-solid fa-hill-rockslide text-amber-400"></i>
+                </div>
+                <div id="k_ero" class="text-lg sm:text-xl font-tech font-black text-amber-300 mt-1">—</div>
+                <span class="text-[10px] text-slate-400 block">ton/tahun (Σ A·Luas)</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-sky-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>② SDR Terpakai</span>
+                    <i class="fa-solid fa-filter text-sky-400"></i>
+                </div>
+                <div id="k_sdr" class="text-lg sm:text-xl font-tech font-black text-sky-300 mt-1">—</div>
+                <span id="k_sdr_sub" class="text-[10px] text-slate-400 block">rasio pengiriman</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-emerald-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>③ Sedimen Yield (SY)</span>
+                    <i class="fa-solid fa-water text-emerald-400"></i>
+                </div>
+                <div id="k_sy" class="text-lg sm:text-xl font-tech font-black text-emerald-400 mt-1">—</div>
+                <span class="text-[10px] text-slate-400 block">ton/tahun (di outlet)</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-cyan-400">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>④ Volume Sedimen (Qs,in)</span>
+                    <i class="fa-solid fa-cubes text-cyan-400"></i>
+                </div>
+                <div id="k_vol" class="text-lg sm:text-xl font-tech font-black text-cyan-300 mt-1">—</div>
+                <span class="text-[10px] text-slate-400 block">m³/tahun (input DSS)</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-purple-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>⑤ Muatan Tersuspensi</span>
+                    <i class="fa-solid fa-wind text-purple-400"></i>
+                </div>
+                <div id="k_sus" class="text-lg sm:text-xl font-tech font-black text-purple-300 mt-1">—</div>
+                <span class="text-[10px] text-slate-400 block">ton/tahun (wash+susp)</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-lime-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>⑥ Muatan Dasar (Bedload)</span>
+                    <i class="fa-solid fa-mound text-lime-400"></i>
+                </div>
+                <div id="k_bed" class="text-lg sm:text-xl font-tech font-black text-lime-300 mt-1">—</div>
+                <span class="text-[10px] text-slate-400 block">ton/tahun (pasir dasar)</span>
+            </div>
+        </section>
+
+        <!-- 5. NAVIGASI WORKSPACE UTAMA (6 MODUL LENGKAP) -->
+        <div class="cmd-card p-2 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
+            <div class="flex flex-wrap items-center gap-1.5" id="mainTabNav">
+                <button type="button" data-s="dash" class="nav-tab-btn px-3.5 py-2 rounded-xl bg-sky-600 text-white font-bold shadow cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-gauge-high"></i> 1. Dasbor &amp; Blueprint
+                </button>
+                <button type="button" data-s="input" class="nav-tab-btn px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-table-list"></i> 2. Input DAS &amp; 13 Unit Lahan
+                </button>
+                <button type="button" data-s="erosi" class="nav-tab-btn px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column"></i> 3. Grafik Erosi, SDR &amp; Sensitivitas
+                </button>
+                <button type="button" data-s="konv" class="nav-tab-btn px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-showers-water"></i> 4. Konversi, Neraca &amp; Hujan Arnoldus
+                </button>
+                <button type="button" data-s="rep" class="nav-tab-btn px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-file-export"></i> 5. Laporan &amp; Ekspor DSS
+                </button>
+                <button type="button" data-s="met" class="nav-tab-btn px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-book-atlas"></i> 6. Metode, WebGIS &amp; Pustaka Ilmiah
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="calibrateSdrFromSsc()" class="px-3 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600 border border-emerald-400 text-emerald-200 hover:text-white font-bold cursor-pointer transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Kalibrasi Otomatis SDR → SSC
+                </button>
+                <button type="button" onclick="toggleChatPanel(true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-sky-500 text-slate-950 font-black cursor-pointer transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-robot"></i> Tanya Solusi AI
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 1: DASBOR & CROSS-SECTION BLUEPRINT SEDIMEN                       -->
+        <!-- ========================================================================= -->
+        <section id="s-dash" class="ws-section space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                <!-- Left 7 Cols: Interactive Blueprint Cross-Section (Erosi Hulu -> Sabo/Check Dam -> Sungai -> Muara DSS) -->
+                <div class="lg:col-span-7 cmd-card overflow-hidden flex flex-col">
+                    <div class="p-3 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                            <span class="font-bold text-sky-300 uppercase">BLUEPRINT RANTAI KONVERSI EROSI DAS → SUNGAI → MUARA PESISIR (DSS)</span>
+                        </div>
+                        <span id="blueprintCalBadge" class="px-2.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[10.5px]">
+                            TERKALIBRASI
+                        </span>
+                    </div>
+
+                    <div class="blueprint-grid p-3 overflow-x-auto">
+                        <svg id="usleBlueprintSvg" viewBox="0 0 920 400" class="w-full h-auto min-w-[680px] select-none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="skyHudGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#041022" stop-opacity="0.7"/>
+                                    <stop offset="100%" stop-color="#082444" stop-opacity="0.3"/>
+                                </linearGradient>
+                                <linearGradient id="hillGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#14532d" stop-opacity="0.95"/>
+                                    <stop offset="55%" stop-color="#3f6212" stop-opacity="0.92"/>
+                                    <stop offset="100%" stop-color="#1e293b" stop-opacity="0.98"/>
+                                </linearGradient>
+                                <linearGradient id="riverFlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9"/>
+                                    <stop offset="60%" stop-color="#0284c7" stop-opacity="0.92"/>
+                                    <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.85"/>
+                                </linearGradient>
+                            </defs>
+                            <g id="svgUsleDynamicLayer"></g>
+                        </svg>
+                    </div>
+
+                    <div class="p-3 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-300">
+                        <div id="noteKal" class="leading-relaxed"></div>
+                    </div>
+                </div>
+
+                <!-- Right 5 Cols: Output Model DSS & Ringkasan Diagnosis AI -->
+                <div class="lg:col-span-5 flex flex-col gap-4">
+                    <div class="cmd-card p-4 space-y-3">
+                        <div class="flex items-center justify-between border-b border-sky-900/60 pb-2">
+                            <h3 class="font-tech text-xs font-black text-amber-300 uppercase flex items-center gap-2">
+                                <i class="fa-solid fa-water-ladder text-sky-400"></i> Keluaran Parameter untuk DSS Sedimen Pro
+                            </h3>
+                            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded">Ready to Export</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="eng-table">
+                                <thead>
+                                    <tr>
+                                        <th>Parameter DSS</th>
+                                        <th class="n">Nilai</th>
+                                        <th>Satuan</th>
+                                        <th>Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="text-sky-300 font-bold">Qs,in Total</td>
+                                        <td class="n font-bold text-white text-sm" id="o_qsin">—</td>
+                                        <td>m³/tahun</td>
+                                        <td class="font-sans text-slate-400 text-[11px]">Pasokan di outlet DAS</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Qs,in per km</td>
+                                        <td class="n text-amber-300 font-bold" id="o_qskm">—</td>
+                                        <td>m³/th/km</td>
+                                        <td class="font-sans text-slate-400 text-[11px]">Untuk sel pantai DSS</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Laju Massa</td>
+                                        <td class="n text-emerald-300" id="o_kg">—</td>
+                                        <td>kg/s</td>
+                                        <td class="font-sans text-slate-400 text-[11px]">Cek kesetimbangan</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-purple-300 font-bold">Konsentrasi (SSC)</td>
+                                        <td class="n font-bold text-purple-300 text-sm" id="o_conc">—</td>
+                                        <td>mg/L</td>
+                                        <td class="font-sans text-slate-400 text-[11px]">Bandingkan SSC terukur</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="cmd-card p-4 space-y-2.5 border-l-4 border-l-sky-400">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-tech text-xs font-black text-sky-300 uppercase flex items-center gap-2">
+                                <i class="fa-solid fa-brain text-amber-400"></i> Diagnosis Cerdas &amp; Solusi Prioritas DAS
+                            </h3>
+                            <button type="button" onclick="askAiDetailedDiagnosis()" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-mono text-[10px] font-bold cursor-pointer">
+                                Detail &amp; Link Sumber ↗
+                            </button>
+                        </div>
+                        <div id="dashSmartDiagnosis" class="text-xs text-slate-200 leading-relaxed font-sans space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kontribusi Per Unit Lahan Table -->
+            <div class="cmd-card p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5 mb-3">
+                    <h3 class="font-tech text-xs sm:text-sm font-black text-sky-300 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-amber-400"></i> Peringkat Kontribusi Erosi &amp; Sedimen Yield per Unit Lahan
+                    </h3>
+                    <span id="sumUnit" class="font-mono text-xs text-amber-300 bg-slate-900 border border-amber-500/40 px-2.5 py-1 rounded-lg"></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="eng-table">
+                        <thead>
+                            <tr>
+                                <th>Unit Lahan (DAS Jragung &amp; Tuntang)</th>
+                                <th class="n">Luas (ha)</th>
+                                <th class="n">Laju E (t/ha/th)</th>
+                                <th class="n">Erosi Bruto (t/th)</th>
+                                <th class="n">Yield Outlet (t/th)</th>
+                                <th class="n">Porsi (%)</th>
+                                <th style="width:150px">Proporsi Visual</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbContrib"></tbody>
+                    </table>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-2.5 font-sans">
+                    <i class="fa-solid fa-circle-info text-sky-400 mr-1"></i>Erosi bruto adalah <code>A = R · K · LS · C · P</code> dikalikan luas tiap unit lahan. Angka ini belum menjadi sedimen sungai; baru setelah dikurangi pengendapan di lereng, kaki bukit, dan dataran banjir (difilter melalui <b>SDR</b> dan <b>Trap Efficiency</b> bangunan hulu).
+                </p>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 2: INPUT DAS & TABEL 13 UNIT LAHAN                                -->
+        <!-- ========================================================================= -->
+        <section id="s-input" class="ws-section hidden space-y-4">
+            <div class="cmd-card p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5 mb-3">
+                    <h3 class="font-tech text-xs sm:text-sm font-black text-amber-300 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-sky-400"></i> Parameter Agregat Hidrologi, Morfometri &amp; Pengiriman Sedimen (SDR)
+                    </h3>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <button type="button" onclick="clearManualSdr()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/40 cursor-pointer">
+                            Gunakan SDR Rumus (α·A^β)
+                        </button>
+                        <button type="button" onclick="calibrateSdrFromSsc()" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer">
+                            🎯 Kalibrasi SDR dari SSC
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+                        <label class="block text-[10px] text-slate-400 mb-1">Luas DAS (Otomatis)</label>
+                        <div class="flex items-center"><input id="d_area" readonly class="w-full bg-transparent text-sky-300 font-bold outline-none"><span class="text-[10px] text-slate-500">km²</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Panjang Sungai Utama (L)</label>
+                        <div class="flex items-center"><input id="d_L" type="number" value="78" step="0.1" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">km</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Debit Rerata Tahunan (Q)</label>
+                        <div class="flex items-center"><input id="d_Q" type="number" value="42" step="0.1" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">m³/s</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Berat Volume Sedimen (ρb)</label>
+                        <div class="flex items-center"><input id="d_rho" type="number" value="1.35" step="0.01" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">t/m³</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Fraksi Bedload (fb)</label>
+                        <div class="flex items-center"><input id="d_fb" type="number" value="0.15" step="0.01" min="0" max="0.6" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">0–0,6</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Koefisien SDR (α)</label>
+                        <div class="flex items-center"><input id="d_alpha" type="number" value="0.42" step="0.01" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">–</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Eksponen SDR (β)</label>
+                        <div class="flex items-center"><input id="d_beta" type="number" value="-0.125" step="0.005" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">–</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-amber-500/50">
+                        <label class="block text-[10px] text-amber-300 mb-1">SDR Manual (Kosong = Auto)</label>
+                        <div class="flex items-center"><input id="d_sdr" type="number" placeholder="Auto (α·A^β)" step="0.0001" class="w-full bg-transparent text-amber-300 font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">–</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-sky-500/30">
+                        <label class="block text-[10px] text-slate-300 mb-1">Faktor Lolos Cek Dam (TE)</label>
+                        <div class="flex items-center"><input id="d_te" type="number" value="0.90" step="0.01" min="0" max="1" class="w-full bg-transparent text-white font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">0–1</span></div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/50">
+                        <label class="block text-[10px] text-emerald-300 mb-1">SSC Terukur (Kalibrasi)</label>
+                        <div class="flex items-center"><input id="d_ssc" type="number" value="105" step="1" class="w-full bg-transparent text-emerald-300 font-bold outline-none param-inp"><span class="text-[10px] text-slate-400">mg/L</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cmd-card p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5 mb-3">
+                    <h3 class="font-tech text-xs sm:text-sm font-black text-sky-300 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-table text-amber-400"></i> Parameter USLE per Unit Lahan (Tabel 2.1–2.7 Analisis Hidrologi V3)
+                    </h3>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <button type="button" id="btnAdd" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold cursor-pointer">+ Tambah Unit</button>
+                        <button type="button" id="btnReset" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-bold cursor-pointer">↺ Muat Data Laporan Awal</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="eng-table">
+                        <thead>
+                            <tr>
+                                <th style="min-width:190px">Unit Lahan</th>
+                                <th class="n" style="min-width:105px">Luas (ha)</th>
+                                <th class="n" style="min-width:85px">R</th>
+                                <th class="n" style="min-width:75px">K</th>
+                                <th class="n" style="min-width:75px">LS</th>
+                                <th class="n" style="min-width:85px">C</th>
+                                <th class="n" style="min-width:75px">P</th>
+                                <th class="n" style="min-width:100px">E (t/ha/th)</th>
+                                <th class="n" style="min-width:115px">Erosi (t/th)</th>
+                                <th class="n">Hapus</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbUnit"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 3: GRAFIK EROSI, KURVA SDR & ANALISIS SENSITIVITAS                -->
+        <!-- ========================================================================= -->
+        <section id="s-erosi" class="ws-section hidden space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="cmd-card p-4">
+                    <h3 class="font-tech text-xs font-black text-sky-300 uppercase mb-2 flex justify-between items-center">
+                        <span><i class="fa-solid fa-chart-bar text-amber-400 mr-1.5"></i>Erosi Bruto vs Sedimen Yield per Unit Lahan (t/th)</span>
+                        <span class="text-[10px] font-mono text-slate-400">Biru: Erosi Bruto | Hijau: Yield</span>
+                    </h3>
+                    <canvas id="cvErosion" class="w-full h-[250px] block"></canvas>
+                </div>
+
+                <div class="cmd-card p-4">
+                    <h3 class="font-tech text-xs font-black text-amber-300 uppercase mb-2 flex justify-between items-center">
+                        <span><i class="fa-solid fa-bezier-curve text-sky-400 mr-1.5"></i>Kurva Fungsi Pengiriman Sedimen SDR = α · A^β</span>
+                        <span id="sdrCurveMeta" class="text-[10px] font-mono text-emerald-300"></span>
+                    </h3>
+                    <canvas id="cvSDR" class="w-full h-[250px] block"></canvas>
+                </div>
+            </div>
+
+            <div class="cmd-card p-4">
+                <h3 class="font-tech text-xs sm:text-sm font-black text-sky-300 uppercase mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-flask-vial text-amber-400 mr-1.5"></i>Analisis Sensitivitas One-at-a-Time (Perturbasi Parameter +10%)</span>
+                    <span class="tag-pill tag-ok">Terverifikasi Numerik</span>
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="eng-table">
+                        <thead>
+                            <tr>
+                                <th>Parameter yang Diuji</th>
+                                <th class="n">Perubahan</th>
+                                <th class="n">Erosi Bruto (t/th)</th>
+                                <th class="n">Sedimen Yield (t/th)</th>
+                                <th class="n">Volume Qs,in (m³/th)</th>
+                                <th class="n">Δ Yield (t/th)</th>
+                                <th class="n">Perubahan Volume (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbSens"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 4: KONVERSI, NERACA & DISTRIBUSI MUSIMAN ARNOLDUS                 -->
+        <!-- ========================================================================= -->
+        <section id="s-konv" class="ws-section hidden space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div class="lg:col-span-7 cmd-card p-4">
+                    <h3 class="font-tech text-xs font-black text-amber-300 uppercase mb-3">
+                        <i class="fa-solid fa-scale-balanced text-sky-400 mr-1.5"></i>Neraca Konversi Bertahap (Dari Erosi Lahan ke Konsentrasi Sungai)
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="eng-table">
+                            <thead>
+                                <tr>
+                                    <th>Tahap Konversi</th>
+                                    <th class="n">Nilai</th>
+                                    <th>Satuan</th>
+                                    <th>Rumus / Dasar Fisik</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbConv"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 cmd-card p-4">
+                    <h3 class="font-tech text-xs font-black text-emerald-300 uppercase mb-3">
+                        <i class="fa-solid fa-clipboard-check text-amber-400 mr-1.5"></i>Pemeriksaan terhadap Pengukuran Lapangan
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="eng-table">
+                            <thead>
+                                <tr>
+                                    <th>Besaran Kontrol</th>
+                                    <th class="n">Model</th>
+                                    <th class="n">Acuan</th>
+                                    <th class="n">Rasio</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbCheck"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cmd-card p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h3 class="font-tech text-xs font-black text-sky-300 uppercase">
+                        <i class="fa-solid fa-cloud-rain text-amber-400 mr-1.5"></i>Curah Hujan Bulanan (mm) &amp; Distribusi Pasokan Sedimen Bulanan (Indeks Arnoldus)
+                    </h3>
+                    <span id="rainTotalBadge" class="font-mono text-xs text-amber-300 bg-slate-900 px-2.5 py-0.5 rounded border border-amber-500/40"></span>
+                </div>
+                <div id="gridMonth" class="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2 font-mono text-xs mb-4"></div>
+                <canvas id="cvMonthly" class="w-full h-[240px] block"></canvas>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 5: LAPORAN TEKNIS & EKSPOR PARAMETER DSS                          -->
+        <!-- ========================================================================= -->
+        <section id="s-rep" class="ws-section hidden space-y-4">
+            <div class="cmd-card p-4 flex flex-wrap items-center gap-2.5 font-mono text-xs">
+                <button type="button" id="btnWord" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold cursor-pointer flex items-center gap-2 shadow">
+                    <i class="fa-solid fa-file-word"></i> Unduh Laporan Utama (.doc)
+                </button>
+                <button type="button" onclick="openWordReportsModal()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black cursor-pointer flex items-center gap-2 shadow">
+                    <i class="fa-solid fa-folder-open"></i> Pusat 13 Laporan Word (.doc)
+                </button>
+                <button type="button" id="btnJson" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-code"></i> Unduh Parameter JSON (DSS)
+                </button>
+                <button type="button" id="btnCsv" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/40 font-bold cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-file-csv"></i> Unduh Tabel CSV
+                </button>
+                <button type="button" id="btnCopy" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-bold cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-copy"></i> Salin Blok JSON DSS
+                </button>
+                <span class="flex-1"></span>
+                <span id="repStamp" class="text-slate-400"></span>
+            </div>
+
+            <div class="cmd-card p-4">
+                <h3 class="font-tech text-xs font-black text-sky-300 uppercase mb-2">Blok Parameter JSON untuk Integrasi DSS Sedimen Pro</h3>
+                <pre id="outParam" class="bg-slate-950 border border-sky-500/40 rounded-xl p-3.5 font-mono text-xs text-sky-200 overflow-x-auto"></pre>
+            </div>
+
+            <div class="rep-doc shadow-2xl" id="repPrev"></div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 6: METODE, PERSAMAAN, WEBGIS DAS & ENSIKLOPEDIA ILMIAH            -->
+        <!-- ========================================================================= -->
+        <section id="s-met" class="ws-section hidden space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- WebGIS Leaflet DAS Jragung & Tuntang -->
+                <div class="cmd-card overflow-hidden flex flex-col h-[420px]">
+                    <div class="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between font-mono text-xs">
+                        <span class="font-bold text-sky-300"><i class="fa-solid fa-map-location-dot text-amber-400 mr-1.5"></i>WEBGIS SATELIT DAS JRAGUNG &amp; TUNTANG (JAWA TENGAH)</span>
+                        <span class="text-[10px] text-emerald-400">Koordinat: -6.95° S, 110.55° E</span>
+                    </div>
+                    <div id="dasLeafletMap" class="w-full flex-1 z-10"></div>
+                </div>
+
+                <!-- Radar Cuaca & Hujan Windy DAS Jragung & Tuntang -->
+                <div class="cmd-card overflow-hidden flex flex-col h-[420px]">
+                    <div class="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between font-mono text-xs">
+                        <span class="font-bold text-amber-300"><i class="fa-solid fa-cloud-showers-heavy text-sky-400 mr-1.5"></i>RADAR CUACA &amp; EROSIVITAS HUJAN WINDY (ECMWF)</span>
+                        <span class="text-[10px] text-sky-300">Pantauan Muson Jawa Tengah</span>
+                    </div>
+                    <iframe class="w-full flex-1 border-0" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km%2Fh&zoom=9&overlay=rain&product=ecmwf&level=surface&lat=-6.95&lon=110.55&detailLat=-6.95&detailLon=110.55&marker=true" allowfullscreen></iframe>
+                </div>
+            </div>
+
+            <!-- Persamaan & Tautan Referensi Eksternal -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 font-sans text-xs">
+                <div class="cmd-card p-4 space-y-2">
+                    <h4 class="font-tech font-bold text-sky-300 uppercase">1. Persamaan USLE / RUSLE</h4>
+                    <div class="p-2.5 bg-slate-950 border-l-4 border-sky-400 rounded font-mono text-sky-200">A = R · K · LS · C · P (t/ha/th)</div>
+                    <p class="text-slate-300 leading-relaxed">Dirumuskan oleh Wischmeier &amp; Smith (1978). Menghitung erosi lembar (sheet) dan alur (rill) bruto tahunan per satuan luas unit lahan.</p>
+                </div>
+                <div class="cmd-card p-4 space-y-2">
+                    <h4 class="font-tech font-bold text-amber-300 uppercase">2. Fungsi Pengiriman SDR</h4>
+                    <div class="p-2.5 bg-slate-950 border-l-4 border-amber-400 rounded font-mono text-amber-200">SDR = α · A^β → SY = Erosi · SDR · TE</div>
+                    <p class="text-slate-300 leading-relaxed">Menyaring fraksi erosi yang mengendap di cekungan mikro, kaki lereng, dan bangunan sabo/cek dam sebelum mencapai outlet sungai.</p>
+                </div>
+                <div class="cmd-card p-4 space-y-2">
+                    <h4 class="font-tech font-bold text-emerald-300 uppercase">3. Konversi Volume &amp; Arnoldus</h4>
+                    <div class="p-2.5 bg-slate-950 border-l-4 border-emerald-400 rounded font-mono text-emerald-200">Qs,in = SY / ρb | Rm = 1,735·10^(1,5·log(Pm²/P)-0,8188)</div>
+                    <p class="text-slate-300 leading-relaxed">Mengonversi massa sedimen ke volume m³/th untuk model garis pantai DSS Sedimen Pro serta membagi fluks bulanan secara musiman.</p>
+                </div>
+            </div>
+
+            <!-- Direktori Link Wikipedia, Google Scholar, Google & AI -->
+            <div class="cmd-card p-4 space-y-3">
+                <h3 class="font-tech text-xs font-black text-amber-300 uppercase">
+                    <i class="fa-solid fa-globe text-sky-400 mr-1.5"></i>Direktori Tautan Sumber Ilmiah: Wikipedia, Google Scholar, Google &amp; Portal AI
+                </h3>
+                <div class="flex flex-wrap gap-2">
+                    <a href="https://en.wikipedia.org/wiki/Universal_Soil_Loss_Equation" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wikipedia: Universal Soil Loss Equation (USLE) ↗</a>
+                    <a href="https://id.wikipedia.org/wiki/Erosi" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wikipedia ID: Erosi &amp; Konservasi Tanah ↗</a>
+                    <a href="https://en.wikipedia.org/wiki/Sediment_transport" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wikipedia: Sediment Transport &amp; Bedload ↗</a>
+                    <a href="https://en.wikipedia.org/wiki/Check_dam" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wikipedia: Check Dam / Sabo Dam ↗</a>
+                    <a href="https://scholar.google.com/scholar?q=USLE+Sediment+Delivery+Ratio+DAS+Jragung+Tuntang" target="_blank" rel="noopener noreferrer" class="ref-badge ref-scholar">🎓 Google Scholar: Jurnal USLE–SDR DAS Jragung &amp; Tuntang ↗</a>
+                    <a href="https://www.google.com/search?q=Perhitungan+Erosi+USLE+dan+Sediment+Delivery+Ratio+DAS" target="_blank" rel="noopener noreferrer" class="ref-badge ref-google">🔍 Google Search: Pedoman USLE &amp; SDR Indonesia ↗</a>
+                    <a href="https://www.perplexity.ai/search?q=How+to+calibrate+USLE+Sediment+Delivery+Ratio+SDR+with+Suspended+Sediment+Concentration+SSC" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">🤖 Perplexity AI Research ↗</a>
+                    <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">💬 OpenAI ChatGPT ↗</a>
+                    <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">✨ Anthropic Claude AI ↗</a>
+                    <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">🌟 Google Gemini AI ↗</a>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 6. MODAL DIREKTORI 61 APLIKASI WEB IR. MOHAMAD HARTADI                    -->
+    <!-- ========================================================================= -->
+    <div id="modalApps" class="fixed inset-0 z-[1200] bg-black/85 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 font-mono text-xs">
+        <div class="cmd-card max-w-5xl w-full p-5 space-y-4 border-2 border-lime-500/75 bg-[#061216] max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-lime-500/30 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-lime-500 to-emerald-500 flex items-center justify-center text-slate-950 text-lg font-black">
+                        <i class="fa-solid fa-cubes-stacked"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-tech text-sm sm:text-base font-black text-amber-300">DIREKTORI 61 MY APLIKASI WEB — IR. MOHAMAD HARTADI</h3>
+                        <p class="text-[10px] text-lime-300">Ekosistem Aplikasi Web Geoteknik, Bendungan, Hidrologi, Pesisir, Seismik &amp; AI</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAppsModal()" class="w-8 h-8 rounded-lg bg-slate-900 border border-lime-500/40 text-lime-300 hover:bg-lime-500 hover:text-slate-950 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="text" id="appSearchInput" oninput="renderAppsDirectory(this.value)" placeholder="Cari aplikasi (contoh: sedimen, way apu, dam, geostruct, seismik, jarvis)..." class="w-full bg-slate-950 border border-lime-500/50 rounded-xl px-3.5 py-2 text-white outline-none">
+            <div id="appsGridContainer" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pr-1"></div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 7. MODAL PROFIL PENELITI & DEVELOPER (IR. MOHAMAD HARTADI)                -->
+    <!-- ========================================================================= -->
+    <div id="creatorModal" class="fixed inset-0 z-[1200] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-mono text-xs">
+        <div class="cmd-card max-w-md w-full p-6 border-2 border-sky-500 text-center space-y-3 bg-slate-900">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-tech font-bold text-amber-400"><i class="fa-solid fa-id-badge mr-1"></i> PROFIL PENGEMBANG &amp; PENELITI</span>
+                <button type="button" onclick="closeCreatorModal()" class="text-slate-400 hover:text-white text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-sky-500 text-slate-950 flex items-center justify-center text-2xl mx-auto shadow-lg">
+                <i class="fa-solid fa-user-tie"></i>
+            </div>
+            <div>
+                <h3 class="font-tech text-base font-black text-white">IR. MOHAMAD HARTADI</h3>
+                <p class="text-sky-400 font-bold text-[11px] mt-0.5">Hydrology, Coastal Sediment &amp; Dam Safety Engineer • AI Developer</p>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed text-justify font-sans">
+                Praktisi teknik sipil, rekayasa sumber daya air, pemodelan erosi DAS (USLE–SDR), angkutan sedimen sungai &amp; pesisir (DSS Sedimen Pro), keamanan bendungan, serta pengembang sistem pendukung keputusan berbasis WebGL &amp; AI.
+            </p>
+            <div class="space-y-2 text-left pt-1">
+                <a href="https://www.facebook.com/hartadi.kds" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/60 text-blue-300 flex justify-between items-center hover:bg-blue-900/60">
+                    <span><i class="fa-brands fa-facebook mr-1.5"></i>Facebook: <b>hartadi.kds</b></span>
+                    <span class="bg-blue-900 px-2 py-0.5 rounded text-[10px] text-white font-bold">Buka</span>
+                </a>
+                <a href="https://newbieonline7.blogspot.com/" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-amber-950/60 border border-amber-500/60 text-amber-300 flex justify-between items-center hover:bg-amber-900/60">
+                    <span><i class="fa-solid fa-blog mr-1.5"></i>Blog: <b>newbieonline7.blogspot.com</b></span>
+                    <span class="bg-amber-900 px-2 py-0.5 rounded text-[10px] text-white font-bold">Buka</span>
+                </a>
+                <a href="https://wa.me/6282231036047" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/60 text-emerald-300 flex justify-between items-center hover:bg-emerald-900/60">
+                    <span><i class="fa-brands fa-whatsapp mr-1.5"></i>WhatsApp: <b>0822-3103-6047</b></span>
+                    <span class="bg-emerald-800 px-2 py-0.5 rounded text-[10px] text-white font-bold">Chat</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 8. FLOATING SMART AI CHATBOT (SOLUSI DETAIL + LINK WIKIPEDIA/GOOGLE/AI)   -->
+    <!-- ========================================================================= -->
+    <div id="floatingChatPanel" class="fixed bottom-20 right-4 z-[1100] w-[360px] sm:w-[480px] max-w-[calc(100vw-1.5rem)] bg-slate-950/95 backdrop-blur-xl border-2 border-sky-500 rounded-2xl shadow-2xl hidden flex-col h-[560px] max-h-[80vh] font-mono text-xs overflow-hidden">
+        <div class="p-3 bg-gradient-to-r from-slate-950 via-sky-950 to-slate-950 border-b border-sky-500/40 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-sky-500 flex items-center justify-center text-slate-950 font-black text-base shadow">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div>
+                    <h4 class="font-tech text-xs font-black text-white">JARVIS AI — USLE &amp; SEDIMEN EXPERT</h4>
+                    <span class="text-[9.5px] text-sky-300">Solusi Detail Real-Time + Sitasi Wikipedia, Google &amp; AI</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button type="button" onclick="clearChatHistory()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer" title="Reset Riwayat Chat"><i class="fa-solid fa-rotate-left"></i></button>
+                <button type="button" onclick="toggleChatPanel()" class="text-slate-400 hover:text-white cursor-pointer px-1.5"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+        </div>
+
+        <div id="chatMessagesBox" class="p-3 space-y-3 overflow-y-auto flex-1 bg-slate-950/85"></div>
+
+        <!-- Quick Question Prompts -->
+        <div class="p-2 bg-slate-900 border-t border-slate-800 flex gap-1.5 overflow-x-auto">
+            <button type="button" onclick="sendQuickChat('Analisis lengkap hasil erosi & sedimen DAS saat ini beserta solusi teknisnya')" class="px-2.5 py-1 rounded-lg bg-sky-950 text-sky-300 border border-sky-600 whitespace-nowrap cursor-pointer hover:bg-sky-800">📊 Diagnosis &amp; Solusi DAS</button>
+            <button type="button" onclick="sendQuickChat('Bagaimana cara kalibrasi SDR menggunakan data SSC terukur 105 mg/L?')" class="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-600 whitespace-nowrap cursor-pointer hover:bg-emerald-800">🎯 Kalibrasi SDR ke SSC</button>
+            <button type="button" onclick="sendQuickChat('Rekomendasi konservasi vegetatif (C), terasering (P), dan cek dam (TE) di DAS Jragung & Tuntang')" class="px-2.5 py-1 rounded-lg bg-amber-950 text-amber-300 border border-amber-600 whitespace-nowrap cursor-pointer hover:bg-amber-800">🌿 Konservasi &amp; Sabo Dam</button>
+            <button type="button" onclick="sendQuickChat('Cara integrasi volume Qs,in ke model pantai DSS Sedimen Pro')" class="px-2.5 py-1 rounded-lg bg-purple-950 text-purple-300 border border-purple-600 whitespace-nowrap cursor-pointer hover:bg-purple-800">🌊 Integrasi DSS Pesisir</button>
+        </div>
+
+        <form onsubmit="event.preventDefault(); processUserChat();" class="p-2.5 bg-slate-950 border-t border-slate-800 flex gap-2">
+            <input type="text" id="chatUserInput" placeholder="Tanyakan rumus USLE, kalibrasi SDR, solusi konservasi, cek dam..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-400">
+            <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-emerald-600 hover:brightness-110 text-white font-bold cursor-pointer"><i class="fa-solid fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <!-- Floating Bottom-Right Action Bar -->
+    <div class="fixed bottom-4 right-4 z-[1050] flex items-center gap-2">
+        <button type="button" onclick="openWordReportsModal()" class="w-11 h-11 rounded-full bg-amber-600 hover:bg-amber-500 text-white border border-amber-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Pusat Ekspor 13 Laporan Word (.doc)">
+            <i class="fa-solid fa-file-word"></i>
+        </button>
+        <button type="button" onclick="openAppsModal()" class="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Direktori 61 My Aplikasi">
+            <i class="fa-solid fa-cubes-stacked"></i>
+        </button>
+        <button type="button" onclick="toggleScreensaver(true)" class="w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white border border-blue-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Screensaver Bumi 3D Interaktif + Doa & Motivasi">
+            <i class="fa-solid fa-earth-asia"></i>
+        </button>
+        <button type="button" onclick="toggleChatPanel()" class="px-4 h-12 rounded-full bg-gradient-to-r from-amber-500 to-sky-600 hover:from-amber-400 hover:to-sky-500 text-slate-950 font-black border border-amber-200 shadow-xl flex items-center gap-2 transition transform hover:scale-105 cursor-pointer">
+            <i class="fa-solid fa-robot text-lg"></i>
+            <span class="font-tech text-xs hidden sm:inline">JARVIS AI</span>
+        </button>
+    </div>
+
+    <!-- 9. FOOTER RESMI -->
+    <footer class="w-full bg-slate-950/90 border-t border-sky-500/30 py-3 px-4 mt-auto relative z-10 font-mono text-[11px] text-slate-400">
+        <div class="max-w-[1800px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>
+                <i class="fa-solid fa-mountain-sun text-sky-400 mr-1"></i> <b>USLE–SDR SEDIMENT YIELD CONVERTER v2.5 PRO</b> — DAS Jragung &amp; Tuntang → Pasokan Sedimen Hulu (DSS Sedimen Pro)
+            </div>
+            <div class="flex items-center gap-3">
+                <span>Developed by <b class="text-amber-400">Ir. Mohamad Hartadi</b></span>
+                <span>•</span>
+                <a href="https://newbieonline7.blogspot.com/" target="_blank" class="text-sky-400 hover:underline">newbieonline7.blogspot.com</a>
+                <span>•</span>
+                <a href="https://wa.me/6282231036047" target="_blank" class="text-emerald-400 hover:underline">WA: 0822-3103-6047</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ========================================================================= -->
+    <!-- 10. MODAL PUSAT EKSPOR 13 LAPORAN WORD (.DOC) KHUSUS USLE–SDR             -->
+    <!-- ========================================================================= -->
+    <div id="wordReportsModal" onclick="if(event.target===this) closeWordReportsModal()" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[10070] flex items-center justify-center p-4 hidden font-mono">
+        <div class="bg-slate-900 border border-sky-500/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-sky-700 flex items-center justify-center shadow-lg"><i class="fa-solid fa-file-word text-white text-lg"></i></div>
+                    <div>
+                        <h3 class="font-bold text-white text-sm tracking-wider">PUSAT EKSPOR 13 LAPORAN WORD &mdash; USLE–SDR DAS JRAGUNG &amp; TUNTANG</h3>
+                        <p class="text-[10px] text-slate-400">13 Topik Spesifik &bull; Tabel Data Terhitung &bull; Risalah Teknis &bull; Saran Konservasi &bull; Kesimpulan</p>
+                    </div>
+                </div>
+                <button onclick="closeWordReportsModal()" class="w-9 h-9 rounded-lg bg-rose-900/60 border border-rose-500/60 text-rose-300 hover:bg-rose-800 hover:text-white cursor-pointer transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-3 border-b border-slate-800 shrink-0 flex items-center justify-between gap-2">
+                <p class="text-[10px] text-slate-400 leading-snug"><i class="fa-solid fa-circle-info text-amber-400 mr-1"></i>Setiap dokumen .doc memuat angka perhitungan real-time Anda dan siap dibuka di Microsoft Word / WPS Office.</p>
+                <button onclick="exportAllUsleWordReports()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-sky-600 hover:from-amber-400 hover:to-sky-500 text-slate-950 text-[11px] font-black cursor-pointer transition shadow-lg flex items-center gap-1.5 shrink-0"><i class="fa-solid fa-download"></i> UNDUH SEMUA (13)</button>
+            </div>
+            <div class="overflow-y-auto p-3 flex-1" id="usleWordReportsList"></div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- JAVASCRIPT ENGINE: 3D REALISTIC EARTH + USLE-SDR + CHATBOT AI             -->
+    <!-- ========================================================================= -->
+    <script>
+    /* ============================================================================
+       BAGIAN 1: MESIN 3D BUMI & AWAN ULTRA-REALISTIS (THREE.JS BLUE MARBLE + ZOOM)
+       Mendukung Zoom In / Zoom Out (Mouse Wheel, Pinch, Tombol UI) & Rotasi 360°
+       di Layar Loading Awal, Background Utama, dan Mode Screensaver 3D
+       ============================================================================ */
+    let bootEarthObj = null, bgEarthObj = null, ssEarthObj = null;
+    let holdBootFlag = false;
+
+    const EARTH_SOURCES = {
+        day: [
+            'https://unpkg.com/three-globe@2.45.5/example/img/earth-blue-marble.jpg',
+            'https://cdn.jsdelivr.net/npm/three-globe@2.45.5/example/img/earth-blue-marble.jpg'
+        ],
+        bump: [
+            'https://unpkg.com/three-globe@2.45.5/example/img/earth-topology.png',
+            'https://cdn.jsdelivr.net/npm/three-globe@2.45.5/example/img/earth-topology.png'
+        ],
+        water: [
+            'https://unpkg.com/three-globe@2.45.5/example/img/earth-water.png',
+            'https://cdn.jsdelivr.net/npm/three-globe@2.45.5/example/img/earth-water.png'
+        ],
+        clouds: [
+            'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_clouds_1024.png'
+        ]
+    };
+
+    function earthLoadChain(urls, onOk, onFail) {
+        if (!urls || !urls.length) { if (onFail) onFail(); return; }
+        const loader = new THREE.TextureLoader();
+        loader.setCrossOrigin('anonymous');
+        loader.load(urls[0], onOk, undefined, function () {
+            earthLoadChain(urls.slice(1), onOk, onFail);
+        });
+    }
+
+    // Fallback Procedural High-Resolution Blue Marble & Cloud Texture Generator
+    function createProceduralEarthAndClouds() {
+        const w = 1024, h = 512;
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+
+        const og = ctx.createLinearGradient(0, 0, 0, h);
+        og.addColorStop(0, '#071b38'); og.addColorStop(0.5, '#0b3b75'); og.addColorStop(1, '#071b38');
+        ctx.fillStyle = og; ctx.fillRect(0, 0, w, h);
+
+        function poly(pts, col) {
+            ctx.beginPath();
+            pts.forEach((p, i) => {
+                const x = (p[0] / 360 + 0.5) * w, y = (0.5 - p[1] / 180) * h;
+                i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            });
+            ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+        }
+        // Eurasia, Africa, Indonesia/Java, Australia, Americas
+        poly([[-10,36],[30,65],[90,72],[165,62],[135,35],[105,5],[75,10],[40,32]], '#1e5c3a');
+        poly([[-16,15],[-5,35],[35,30],[50,10],[35,-30],[15,-33],[8,4]], '#4d6b3c');
+        poly([[95,5.5],[104,-1],[106,-5.8],[98,1]], '#15803d'); // Sumatra
+        poly([[105.2,-6.1],[110.5,-6.6],[114.4,-7.8],[113.5,-8.5],[106,-7]], '#22c55e'); // Java
+        poly([[109,2],[118,4],[117,-3.5],[110,-2.8]], '#166534'); // Kalimantan
+        poly([[114,-22],[131,-12],[150,-22],[147,-38],[115,-34]], '#855832'); // Australia
+        poly([[-160,62],[-70,58],[-80,25],[-100,15],[-125,45]], '#275e3b');
+        poly([[-78,10],[-35,-6],[-58,-38],[-72,-45],[-78,-4]], '#1c6b36');
+
+        // Cloud Canvas
+        const cCv = document.createElement('canvas');
+        cCv.width = w; cCv.height = h;
+        const cCtx = cCv.getContext('2d');
+        for (let i = 0; i < 480; i++) {
+            const x = Math.random() * w, y = Math.random() * h, r = 12 + Math.random() * 55;
+            const g = cCtx.createRadialGradient(x, y, 1, x, y, r);
+            g.addColorStop(0, 'rgba(255,255,255,0.22)');
+            g.addColorStop(1, 'rgba(255,255,255,0)');
+            cCtx.fillStyle = g;
+            cCtx.beginPath(); cCtx.arc(x, y, r, 0, Math.PI * 2); cCtx.fill();
+        }
+        return {
+            dayTex: new THREE.CanvasTexture(cv),
+            cloudTex: new THREE.CanvasTexture(cCv)
+        };
+    }
+
+    function createRealisticEarth(container, opts) {
+        if (!container || typeof THREE === 'undefined') return null;
+        container.innerHTML = '';
+        const W = Math.max(container.clientWidth || window.innerWidth, 240);
+        const H = Math.max(container.clientHeight || window.innerHeight, 240);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 3000);
+        const defaultZ = opts.camZ || 62;
+        const minZ = opts.minZ || 26;
+        const maxZ = opts.maxZ || 135;
+
+        camera.position.set(0, opts.camY !== undefined ? opts.camY : 4, defaultZ);
+
+        let renderer;
+        try {
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+        } catch (e) { return null; }
+
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(W, H);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+
+        // Realistic Space Lighting
+        scene.add(new THREE.AmbientLight(0x9fc5ff, 0.88));
+        const sun = new THREE.DirectionalLight(0xfff5dc, 1.35);
+        sun.position.set(110, 45, 95);
+        scene.add(sun);
+
+        const rim = new THREE.DirectionalLight(0x38bdf8, 0.65);
+        rim.position.set(-100, -35, -80);
+        scene.add(rim);
+
+        // Starfield (2,200 Stars)
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = new Float32Array(2200 * 3);
+        for (let i = 0; i < 2200; i++) {
+            const r = 180 + Math.random() * 450;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            starPos[i * 3 + 2] = r * Math.cos(phi);
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starsMesh = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.9, transparent: true, opacity: 0.85 }));
+        scene.add(starsMesh);
+
+        const earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+
+        const radius = opts.radius || 20;
+        const proc = createProceduralEarthAndClouds();
+
+        // 1. Earth Sphere with Blue Marble + Bump + Specular
+        const earthMat = new THREE.MeshPhongMaterial({
+            map: proc.dayTex,
+            bumpScale: 0.45,
+            specular: new THREE.Color(0x38bdf8),
+            shininess: 16
+        });
+        const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 64), earthMat);
+        earthGroup.add(earthMesh);
+
+        // Orient initial rotation toward Indonesia / Java Island (~110.5°E)
+        earthGroup.rotation.x = 0.16;
+        earthGroup.rotation.y = -3.45;
+
+        earthLoadChain(EARTH_SOURCES.day, function (t) {
+            t.anisotropy = 4;
+            earthMat.map = t;
+            earthMat.needsUpdate = true;
+        });
+        earthLoadChain(EARTH_SOURCES.bump, function (t) {
+            earthMat.bumpMap = t;
+            earthMat.bumpScale = 0.55;
+            earthMat.needsUpdate = true;
+        });
+        earthLoadChain(EARTH_SOURCES.water, function (t) {
+            earthMat.specularMap = t;
+            earthMat.needsUpdate = true;
+        });
+
+        // 2. Realistic 3D Cloud Sphere (Independent Rotation + Soft Transparency)
+        const cloudMat = new THREE.MeshPhongMaterial({
+            map: proc.cloudTex,
+            transparent: true,
+            opacity: 0.88,
+            depthWrite: false
+        });
+        const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.014, 64, 64), cloudMat);
+        earthGroup.add(cloudMesh);
+
+        earthLoadChain(EARTH_SOURCES.clouds, function (t) {
+            cloudMat.map = t;
+            cloudMat.opacity = 0.92;
+            cloudMat.needsUpdate = true;
+        });
+
+        // 3. Atmospheric Fresnel Glow Halo Sphere
+        const atmosGeo = new THREE.SphereGeometry(radius * 1.085, 64, 64);
+        const atmosMat = new THREE.ShaderMaterial({
+            vertexShader: [
+                'varying vec3 vNormal;',
+                'void main() {',
+                '  vNormal = normalize(normalMatrix * normal);',
+                '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+                '}'
+            ].join('\n'),
+            fragmentShader: [
+                'varying vec3 vNormal;',
+                'void main() {',
+                '  float intensity = pow(0.64 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.3);',
+                '  gl_FragColor = vec4(0.22, 0.68, 1.0, 1.0) * intensity * 1.15;',
+                '}'
+            ].join('\n'),
+            blending: THREE.AdditiveBlending,
+            side: THREE.BackSide,
+            transparent: true
+        });
+        const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+        scene.add(atmosMesh);
+
+        // 4. Glowing Marker Pin at Central Java (DAS Jragung & Tuntang: -6.95°S, 110.55°E)
+        const lat = -6.95 * (Math.PI / 180);
+        const lon = 110.55 * (Math.PI / 180);
+        const rPin = radius * 1.02;
+        const px = -rPin * Math.cos(lat) * Math.cos(lon);
+        const py = rPin * Math.sin(lat);
+        const pz = rPin * Math.cos(lat) * Math.sin(lon);
+
+        const pinDot = new THREE.Mesh(
+            new THREE.SphereGeometry(radius * 0.018, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+        );
+        pinDot.position.set(px, py, pz);
+        earthGroup.add(pinDot);
+
+        const api = {
+            raf: 0,
+            running: false,
+            renderer: renderer,
+            camera: camera,
+            earthGroup: earthGroup,
+            cloudMesh: cloudMesh,
+            targetZ: defaultZ,
+            currentZ: defaultZ,
+            defaultZ: defaultZ,
+            minZ: minZ,
+            maxZ: maxZ,
+            targetRotX: 0.16,
+            targetRotY: -3.45,
+            isDragging: false,
+            prevX: 0,
+            prevY: 0,
+            pinchDist: 0,
+            zoomBy: function(delta) {
+                api.targetZ = Math.max(api.minZ, Math.min(api.maxZ, api.targetZ + delta));
+                updateZoomBadgeUI(api);
+            },
+            resetView: function() {
+                api.targetZ = api.defaultZ;
+                api.targetRotX = 0.16;
+                api.targetRotY = -3.45;
+                updateZoomBadgeUI(api);
+            },
+            resize: function() {
+                const nw = Math.max(container.clientWidth || window.innerWidth, 240);
+                const nh = Math.max(container.clientHeight || window.innerHeight, 240);
+                camera.aspect = nw / nh;
+                camera.updateProjectionMatrix();
+                renderer.setSize(nw, nh);
+            },
+            loop: function () {
+                if (api.running) return;
+                api.running = true;
+                const tick = function () {
+                    if (!api.running) return;
+                    if (!api.isDragging) {
+                        api.targetRotY += (opts.earthSpeed || 0.0010);
+                    }
+                    cloudMesh.rotation.y += (opts.cloudSpeed || 0.0006);
+                    starsMesh.rotation.y += 0.00015;
+
+                    // Smooth interpolation for Zoom & Orbit Rotation
+                    earthGroup.rotation.y += (api.targetRotY - earthGroup.rotation.y) * 0.12;
+                    earthGroup.rotation.x += (api.targetRotX - earthGroup.rotation.x) * 0.12;
+                    api.currentZ += (api.targetZ - api.currentZ) * 0.12;
+                    camera.position.z = api.currentZ;
+
+                    renderer.render(scene, camera);
+                    api.raf = requestAnimationFrame(tick);
+                };
+                tick();
+            },
+            stop: function () {
+                api.running = false;
+                cancelAnimationFrame(api.raf);
+                api.raf = 0;
+            }
+        };
+
+        // Attach Mouse Drag, Wheel Zoom, and Touch Pinch-to-Zoom directly to Canvas
+        const dom = renderer.domElement;
+        dom.addEventListener('mousedown', function(e) {
+            api.isDragging = true;
+            api.prevX = e.clientX;
+            api.prevY = e.clientY;
+        });
+        window.addEventListener('mousemove', function(e) {
+            if (!api.isDragging) return;
+            const dx = e.clientX - api.prevX;
+            const dy = e.clientY - api.prevY;
+            api.prevX = e.clientX;
+            api.prevY = e.clientY;
+            api.targetRotY += dx * 0.0065;
+            api.targetRotX = Math.max(-1.2, Math.min(1.2, api.targetRotX + dy * 0.0065));
+        });
+        window.addEventListener('mouseup', function() {
+            api.isDragging = false;
+        });
+
+        dom.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const step = e.deltaY * 0.04;
+            api.zoomBy(step);
+        }, { passive: false });
+
+        dom.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) {
+                api.isDragging = true;
+                api.prevX = e.touches[0].clientX;
+                api.prevY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                api.isDragging = false;
+                api.pinchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        }, { passive: true });
+
+        dom.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 1 && api.isDragging) {
+                const dx = e.touches[0].clientX - api.prevX;
+                const dy = e.touches[0].clientY - api.prevY;
+                api.prevX = e.touches[0].clientX;
+                api.prevY = e.touches[0].clientY;
+                api.targetRotY += dx * 0.0065;
+                api.targetRotX = Math.max(-1.2, Math.min(1.2, api.targetRotX + dy * 0.0065));
+            } else if (e.touches.length === 2 && api.pinchDist > 0) {
+                const d = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                api.zoomBy((api.pinchDist - d) * 0.15);
+                api.pinchDist = d;
+            }
+        }, { passive: true });
+
+        dom.addEventListener('touchend', function() {
+            api.isDragging = false;
+            api.pinchDist = 0;
+        });
+
+        return api;
+    }
+
+    function updateZoomBadgeUI(earthApi) {
+        const badge = document.getElementById('bgZoomBadge');
+        if (badge && earthApi) {
+            const pct = Math.round((earthApi.defaultZ / earthApi.targetZ) * 100);
+            badge.textContent = pct + '%';
+        }
+    }
+
+    function getActiveEarthInstance() {
+        const loadEl = document.getElementById('loadingOverlay');
+        if (loadEl && loadEl.style.display !== 'none' && loadEl.style.opacity !== '0') return bootEarthObj;
+        const ssEl = document.getElementById('screensaverOverlay');
+        if (ssEl && !ssEl.classList.contains('hidden')) return ssEarthObj;
+        return bgEarthObj;
+    }
+
+    function zoomEarthInstance(inst, delta) {
+        if (inst && inst.zoomBy) inst.zoomBy(delta);
+    }
+    function resetEarthInstance(inst) {
+        if (inst && inst.resetView) inst.resetView();
+    }
+    function zoomActiveEarth(delta) {
+        const inst = getActiveEarthInstance();
+        if (inst) inst.zoomBy(delta);
+    }
+    function resetActiveEarth() {
+        const inst = getActiveEarthInstance();
+        if (inst) inst.resetView();
+    }
+
+    function toggleBackgroundEarthFreeMode() {
+        const wrap = document.getElementById('mainWorkspaceWrapper');
+        const btn = document.getElementById('btnToggleFreeEarthBg');
+        const isFree = wrap.classList.toggle('earth-free-view');
+        if (btn) {
+            btn.innerHTML = isFree ? '📊 Tampilkan Dasbor' : '🌍 Eksplorasi Penuh';
+            btn.className = isFree
+                ? 'px-3 py-1 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] transition cursor-pointer'
+                : 'px-2.5 py-1 rounded-full bg-sky-900/80 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-400/50 text-[10px] font-bold transition cursor-pointer';
+        }
+    }
+
+    function toggleHoldBootScreen() {
+        holdBootFlag = !holdBootFlag;
+        const btn = document.getElementById('btnHoldBootScreen');
+        if (btn) {
+            btn.textContent = holdBootFlag ? '▶ Lanjutkan Masuk Aplikasi' : '⏸ Tahan Loading (Eksplorasi 3D)';
+            btn.className = holdBootFlag
+                ? 'px-3 py-1 rounded-full bg-emerald-500 text-slate-950 font-black border border-emerald-300 transition cursor-pointer'
+                : 'px-3 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold border border-amber-400/60 transition cursor-pointer';
+        }
+        if (!holdBootFlag && window._bootLoadedDone) {
+            dismissLoadingScreen();
+        }
+    }
+
+    function mount3DEarthScene(containerId) {
+        const c = document.getElementById(containerId);
+        if (!c) return;
+        if (containerId === 'loadingEarthCanvas') {
+            bootEarthObj = createRealisticEarth(c, { camZ: 56, camY: 2, radius: 20, earthSpeed: 0.0011, cloudSpeed: 0.0007 });
+            if (bootEarthObj) bootEarthObj.loop();
+        } else if (containerId === 'bgEarthCanvas') {
+            bgEarthObj = createRealisticEarth(c, { camZ: 64, camY: 4, radius: 22, earthSpeed: 0.0007, cloudSpeed: 0.0005 });
+            if (bgEarthObj) bgEarthObj.loop();
+        } else if (containerId === 'ssEarthCanvas') {
+            ssEarthObj = createRealisticEarth(c, { camZ: 56, camY: 2, radius: 21, earthSpeed: 0.0012, cloudSpeed: 0.0008 });
+            if (ssEarthObj) ssEarthObj.loop();
+        }
+    }
+
+    window.addEventListener('resize', function() {
+        [bootEarthObj, bgEarthObj, ssEarthObj].forEach(inst => {
+            if (inst && inst.resize) inst.resize();
+        });
+    });
+
+    /* ============================================================================
+       BAGIAN 2: KOLEKSI MOTIVASI, KATA BIJAK & DOA PADA SCREENSAVER 3D
+       ============================================================================ */
+    const WISDOM_DATA = [
+        {
+            cat: 'doa',
+            badge: 'DOA & KEBERKAHAN ILMU',
+            title: 'Doa Memohon Ilmu yang Bermanfaat & Amal Rekayasa yang Diterima',
+            arabic: 'اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا، وَرِزْقًا طَيِّبًا، وَعَمَلًا مُتَقَبَّلًا',
+            latin: '"Allahumma inni as\'aluka \'ilman nafi\'an, wa rizqan thayyiban, wa \'amalan mutaqabbalan."',
+            text: '"Ya Allah, sesungguhnya aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik, dan amal karya keteknikan yang diterima di sisi-Mu."',
+            source: 'HR. Ibnu Majah • Doa Insinyur Sumber Daya Air & Konservasi DAS'
+        },
+        {
+            cat: 'doa',
+            badge: 'DOA KELESTARIAN BUMI',
+            title: 'Amanah Menjaga Keseimbangan Bumi & Mencegah Kerusakan Lingkungan',
+            arabic: 'وَلَا تُفْسِدُوا فِي الْأَرْضِ بَعْدَ إِصْلَاحِهَا وَادْعُوهُ خَوْفًا وَطَمَعًا',
+            latin: '"Wa laa tufsiduu fil ardhi ba\'da ishlaahihaa wad\'uuhu khaufan wa thama\'aa."',
+            text: '"Dan janganlah kamu membuat kerusakan di muka bumi sesudah (Allah) memperbaikinya, dan berdoalah kepada-Nya dengan rasa takut dan penuh harapan."',
+            source: 'QS. Al-A\'raf Ayat 56 • Prinsip Konservasi Tanah & Air'
+        },
+        {
+            cat: 'doa',
+            badge: 'DOA HUJAN BERKAH',
+            title: 'Doa Ketika Turun Hujan Agar Membawa Rahmat Tanpa Bencana Erosi & Banjir',
+            arabic: 'اللَّهُمَّ صَيِّبًا نَافِعًا، اللَّهُمَّ حَوَالَيْنَا وَلَا عَلَيْنَا',
+            latin: '"Allahumma shayyiban nafi\'an, Allahumma hawalaina wa laa \'alaina."',
+            text: '"Ya Allah, turunkanlah hujan yang membawa manfaat dan keberkahan. Ya Allah, curahkanlah di sekitar bukit dan hutan tanaman kami, bukan yang merusak permukiman kami."',
+            source: 'HR. Bukhari & Muslim • Doa Pengendalian Daya Rusak Air'
+        },
+        {
+            cat: 'doa',
+            badge: 'DOA KEMUDAHAN URUSAN',
+            title: 'Doa Memohon Kelancaran Analisis & Ketepatan Keputusan Teknis',
+            arabic: 'رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي وَاحْلُلْ عُقْدَةً مِنْ لِسَانِي يَفْقَهُوا قَوْلِي',
+            latin: '"Rabbisyrah lii shadrii, wa yassir lii amrii, wahlul \'uqdatan min lisaanii yafqahuu qaulii."',
+            text: '"Ya Tuhanku, lapangkanlah dadaku, mudahkanlah segala urusan keteknikanku, dan lepaskanlah kekakuan dari lidahku agar mereka memahami gagasan dan solusiku."',
+            source: 'QS. Thaha Ayat 25–28'
+        },
+        {
+            cat: 'motivasi',
+            badge: 'MOTIVASI INSINYUR SDA',
+            title: 'Menjaga Tanah Hulu Demi Keselamatan Waduk dan Pantai Hilir',
+            arabic: '',
+            latin: '',
+            text: '"Setiap ton tanah pucuk yang berhasil kita selamatkan dari erosi di hulu DAS Jragung dan Tuntang adalah warisan ketahanan pangan, usia waduk yang panjang, dan perlindungan garis pantai bagi generasi mendatang."',
+            source: 'Ir. Mohamad Hartadi • Filosofi Rekayasa Hidrologi & Konservasi Terpadu'
+        },
+        {
+            cat: 'motivasi',
+            badge: 'MOTIVASI KETEKNIKAN',
+            title: 'Kejujuran Kalibrasi & Integritas Profesi Keinsinyuran',
+            arabic: '',
+            latin: '',
+            text: '"Model matematika sebaik USLE dan SDR adalah kompas penunjuk arah; namun kekuatan sejatinya lahir dari ketelitian kalibrasi data lapangan dan keberanian menerapkan solusi konservasi yang berpihak pada kelestarian alam."',
+            source: 'Etika Profesi Insinyur Hidrologi & Geoteknik Indonesia'
+        },
+        {
+            cat: 'motivasi',
+            badge: 'MOTIVASI PENGABDIAN',
+            title: 'Karya Rekayasa sebagai Amal Jariyah',
+            arabic: '',
+            latin: '',
+            text: '"Membangun cek dam, merancang terasering, dan memodelkan neraca sedimen bukan sekadar pekerjaan angka, melainkan ikhtiar mulia menjaga harmoni antara air, tanah, dan kehidupan manusia."',
+            source: 'Kementerian PUPR — Sigap Membangun Negeri'
+        },
+        {
+            cat: 'bijak',
+            badge: 'KATA BIJAK ALAM & AIR',
+            title: 'Persahabatan Hujan, Hutan, dan Lereng Bukit',
+            arabic: '',
+            latin: '',
+            text: '"Air yang jatuh dari langit adalah sahabat sejati bagi tanah yang dinaungi tajuk hutan lebat, namun berubah menjadi pengikis yang menggerus lereng ketika manusia mengabaikan konservasi."',
+            source: 'Kearifan Ekohidrologi Nusantara'
+        },
+        {
+            cat: 'bijak',
+            badge: 'KATA BIJAK KONSERVASI',
+            title: 'Sungai sebagai Pembawa Pesan dari Gunung ke Samudra',
+            arabic: '',
+            latin: '',
+            text: '"Sungai tidak pernah berdusta; keruhnya muara di pesisir adalah surat peringatan yang dikirim oleh lereng bukit di hulu yang merindukan pepohonan."',
+            source: 'Prinsip Integrated Watershed & Coastal Management'
+        },
+        {
+            cat: 'bijak',
+            badge: 'KATA BIJAK PERADABAN',
+            title: 'Menjaga Tanah Berarti Menjaga Masa Depan Bangsa',
+            arabic: '',
+            latin: '',
+            text: '"Bangsa yang membiarkan lapisan tanah suburnya hanyut tererosi sedang mengikis masa depannya sendiri. Konservasi tanah adalah fondasi kemakmuran yang lestari."',
+            source: 'Pelopor Konservasi Tanah & Air Dunia'
+        }
+    ];
+
+    let activeWisdomList = WISDOM_DATA.slice();
+    let activeWisdomIdx = 0;
+
+    function setWisdomCategory(cat) {
+        activeWisdomList = (cat === 'all') ? WISDOM_DATA.slice() : WISDOM_DATA.filter(w => w.cat === cat);
+        activeWisdomIdx = 0;
+        document.querySelectorAll('#ssCatTabs button').forEach(b => {
+            b.className = (b.dataset.wcat === cat)
+                ? 'px-3 py-1 rounded-lg bg-sky-600 text-white font-bold cursor-pointer'
+                : 'px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer';
+        });
+        renderWisdomCard();
+    }
+
+    function stepWisdom(dir) {
+        activeWisdomIdx = (activeWisdomIdx + dir + activeWisdomList.length) % activeWisdomList.length;
+        renderWisdomCard();
+    }
+
+    function renderWisdomCard() {
+        const w = activeWisdomList[activeWisdomIdx] || WISDOM_DATA[0];
+        document.getElementById('ssWisdomBadge').textContent = w.badge;
+        document.getElementById('ssWisdomTitle').textContent = w.title;
+        const arEl = document.getElementById('ssWisdomArabic');
+        arEl.textContent = w.arabic || '';
+        arEl.style.display = w.arabic ? 'block' : 'none';
+        const latEl = document.getElementById('ssWisdomLatin');
+        latEl.textContent = w.latin || '';
+        latEl.style.display = w.latin ? 'block' : 'none';
+        document.getElementById('ssWisdomText').textContent = w.text;
+        document.getElementById('ssWisdomSource').textContent = '— ' + w.source;
+        document.getElementById('ssWisdomCounter').textContent = `${activeWisdomIdx + 1} / ${activeWisdomList.length}`;
+    }
+
+    function speakTextID(textToSpeak) {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(textToSpeak);
+        u.lang = 'id-ID';
+        u.rate = 0.96;
+        window.speechSynthesis.speak(u);
+    }
+
+    function speakCurrentWisdom() {
+        const w = activeWisdomList[activeWisdomIdx] || WISDOM_DATA[0];
+        speakTextID(`${w.title}. ${w.latin ? w.latin + '. ' : ''}${w.text}. Sumber: ${w.source}`);
+    }
+
+    /* ============================================================================
+       BAGIAN 3: MESIN PERHITUNGAN INTI USLE–SDR & ARNOLDUS (DARI v1.0 + BEBAS BUG)
+       ============================================================================ */
+    const $ = id => document.getElementById(id);
+    const nf = (v, d) => {
+        if (v === undefined || v === null || !isFinite(v)) return '—';
+        return Number(v).toLocaleString('id-ID', {
+            minimumFractionDigits: (d === undefined ? 1 : d),
+            maximumFractionDigits: (d === undefined ? 1 : d)
+        });
+    };
+
+    const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const RAIN0 = [520,480,430,260,150,90,70,60,110,230,420,500];
+    let RAIN = RAIN0.slice();
+
+    const U0 = [
+        {n:'Hutan lahan kering (Jragung)',a:33.02,R:3200,K:0.13,LS:1.05,C:0.005,P:1},
+        {n:'Hutan tanaman (Jragung)',a:10234.76,R:3200,K:0.13,LS:1.05,C:0.02,P:1},
+        {n:'Perkebunan (Jragung)',a:1891.83,R:3200,K:0.13,LS:1.05,C:0.30,P:1},
+        {n:'Permukiman (Jragung)',a:13681.63,R:3200,K:0.13,LS:1.05,C:0.50,P:1},
+        {n:'Tanah terbuka (Jragung)',a:39.07,R:3200,K:0.13,LS:1.05,C:1.00,P:1},
+        {n:'Badan air (Jragung)',a:44.25,R:3200,K:0.13,LS:1.05,C:0.00,P:1},
+        {n:'Hutan lahan kering (Tuntang)',a:612.03,R:3400,K:0.12,LS:3.04,C:0.01,P:1},
+        {n:'Hutan tanaman (Tuntang)',a:18148.74,R:3400,K:0.12,LS:3.04,C:0.02,P:1},
+        {n:'Semak belukar (Tuntang)',a:7.33,R:3400,K:0.12,LS:3.04,C:0.30,P:1},
+        {n:'Perkebunan (Tuntang)',a:4411.88,R:3400,K:0.12,LS:3.04,C:0.50,P:1},
+        {n:'Permukiman (Tuntang)',a:17709.64,R:3400,K:0.12,LS:3.04,C:0.50,P:1},
+        {n:'Tanah terbuka (Tuntang)',a:297.29,R:3400,K:0.12,LS:3.04,C:1.00,P:1},
+        {n:'Badan air (Tuntang)',a:284.95,R:3400,K:0.12,LS:3.04,C:0.00,P:1}
+    ];
+    let U = JSON.parse(JSON.stringify(U0));
+    let R = {};
+    let r_area = 0;
+
+    function gv(id, def) {
+        const el = $(id);
+        if (!el) return def;
+        const v = parseFloat(String(el.value).replace(',', '.'));
+        return isFinite(v) ? v : def;
+    }
+
+    function readParams() {
+        r_area = U.reduce((s, u) => s + (+u.a || 0), 0);
+        R.L = gv('d_L', 78);
+        R.Q = gv('d_Q', 42);
+        R.rho = Math.max(0.1, gv('d_rho', 1.35));
+        R.fb = Math.min(0.6, Math.max(0, gv('d_fb', 0.15)));
+        R.al = gv('d_alpha', 0.42);
+        R.be = gv('d_beta', -0.125);
+        const sdrRaw = parseFloat(String($('d_sdr').value).replace(',', '.'));
+        R.sdrM = (isFinite(sdrRaw) && sdrRaw > 0) ? sdrRaw : NaN;
+        R.te = Math.min(1, Math.max(0, gv('d_te', 0.90)));
+        R.ssc = gv('d_ssc', 105);
+        R.rain = RAIN.slice();
+    }
+
+    function calc() {
+        readParams();
+        const areaKm = r_area / 100;
+        let totE = 0;
+        const rows = [];
+        U.forEach((u, idx) => {
+            const A = (+u.R || 0) * (+u.K || 0) * (+u.LS || 0) * (+u.C || 0) * (+u.P || 0);
+            const ero = A * (+u.a || 0);
+            totE += ero;
+            rows.push({ idx, u, A, ero });
+        });
+
+        const sdrAuto = Math.pow(Math.max(areaKm, 0.1), R.be) * R.al;
+        const sdrAutoC = Math.min(0.95, Math.max(0.005, sdrAuto));
+        const sdr = isFinite(R.sdrM) ? Math.min(0.98, Math.max(0.0001, R.sdrM)) : sdrAutoC;
+
+        const SY = totE * sdr * R.te;
+        const V = SY / R.rho;
+        const sus = SY * (1 - R.fb);
+        const bed = SY * R.fb;
+        const Qv = R.Q * 31.536e6;
+        const conc = Qv > 0 ? (SY * 1e6) / Qv : NaN;
+        const kgs = (SY * 1000) / 31.536e6;
+
+        const w = [];
+        const sumP = R.rain.reduce((s, x) => s + (+x || 0), 0);
+        R.rain.forEach(pm => {
+            const pVal = Math.max(0, +pm || 0);
+            const v = pVal > 0 ? 1.735 * Math.pow(10, 1.5 * Math.log10(Math.max((pVal * pVal) / Math.max(sumP, 1), 1e-6)) - 0.8188) : 0;
+            w.push(Math.max(0, v));
+        });
+        const sw = w.reduce((s, x) => s + x, 0) || 1;
+        const wNorm = w.map(x => x / sw);
+
+        return {
+            areaKm, rows, totE, sdr, sdrAuto: sdrAutoC,
+            isManualSdr: isFinite(R.sdrM),
+            SY, V, sus, bed, conc, kgs, w: wNorm, sumP, Qv
+        };
+    }
+
+    function buildUnitTableDOM() {
+        const tb = $('tbUnit');
+        if (!tb) return;
+        tb.innerHTML = '';
+        U.forEach((u, i) => {
+            const A = (+u.R) * (+u.K) * (+u.LS) * (+u.C) * (+u.P);
+            const ero = A * (+u.a || 0);
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                `<td><input class="txt" data-k="n" data-i="${i}" value="${u.n}"></td>` +
+                `<td class="n"><input type="number" step="0.01" data-k="a" data-i="${i}" value="${u.a}"></td>` +
+                `<td class="n"><input type="number" step="10" data-k="R" data-i="${i}" value="${u.R}"></td>` +
+                `<td class="n"><input type="number" step="0.01" data-k="K" data-i="${i}" value="${u.K}"></td>` +
+                `<td class="n"><input type="number" step="0.01" data-k="LS" data-i="${i}" value="${u.LS}"></td>` +
+                `<td class="n"><input type="number" step="0.005" data-k="C" data-i="${i}" value="${u.C}"></td>` +
+                `<td class="n"><input type="number" step="0.05" data-k="P" data-i="${i}" value="${u.P}"></td>` +
+                `<td class="n text-sky-300 font-bold" id="cell_A_${i}">${nf(A, 2)}</td>` +
+                `<td class="n text-amber-300 font-bold" id="cell_E_${i}">${nf(ero, 0)}</td>` +
+                `<td class="n"><button type="button" class="px-2 py-0.5 rounded bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 cursor-pointer" data-del="${i}">×</button></td>`;
+            tb.appendChild(tr);
+        });
+    }
+
+    function buildMonthlyRainDOM() {
+        const mb = $('gridMonth');
+        if (!mb || mb.dataset.done) return;
+        mb.innerHTML = '';
+        RAIN.forEach((v, i) => {
+            const d = document.createElement('div');
+            d.className = 'bg-slate-950/85 p-2 rounded-xl border border-sky-500/30';
+            d.innerHTML = `<label class="block text-[10px] text-sky-300 font-bold mb-1">${MONTHS[i]}</label>` +
+                          `<div class="flex items-center"><input type="number" data-m="${i}" value="${v}" class="w-full bg-transparent text-white font-bold outline-none"><span class="text-[9.5px] text-slate-400">mm</span></div>`;
+            mb.appendChild(d);
+        });
+        mb.dataset.done = '1';
+    }
+
+    /* ---------- BLUEPRINT INTERAKTIF CROSS-SECTION DAS → SUNGAI → PESISIR ---------- */
+    function renderUsleBlueprintSvg(res) {
+        const g = $('svgUsleDynamicLayer');
+        if (!g) return;
+        const ras = R.ssc > 0 ? res.conc / R.ssc : 1;
+        const statusOk = ras >= 0.6 && ras <= 1.6;
+
+        g.innerHTML = `
+            <!-- Background Sky & Grid Frame -->
+            <rect x="10" y="10" width="900" height="380" rx="12" fill="url(#skyHudGrad)" stroke="#0284c7" stroke-width="1.5"/>
+
+            <!-- 1. Lereng Bukit Hulu DAS Jragung & Tuntang -->
+            <polygon points="20,350 20,105 160,115 310,235 450,260 450,350" fill="url(#hillGrad)" stroke="#4ade80" stroke-width="2"/>
+            <text x="55" y="92" fill="#4ade80" font-family="Orbitron" font-size="11" font-weight="900">1. HULU DAS (USLE: A = R·K·LS·C·P)</text>
+            <text x="55" y="145" fill="#fef08a" font-family="JetBrains Mono" font-size="11" font-weight="bold">Erosi Bruto: ${nf(res.totE, 0)} t/th</text>
+            <text x="55" y="165" fill="#bae6fd" font-family="JetBrains Mono" font-size="10">Luas DAS: ${nf(res.areaKm, 2)} km² (${U.length} unit)</text>
+
+            <!-- Panah Aliran Erosi Lereng -->
+            <line x1="175" y1="130" x2="285" y2="215" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="6,4"/>
+            <polygon points="288,218 276,215 283,206" fill="#fbbf24"/>
+
+            <!-- 2. Zona Deposisi Lereng & Sabo / Check Dam Hulu -->
+            <rect x="330" y="210" width="28" height="75" rx="4" fill="#475569" stroke="#f59e0b" stroke-width="2"/>
+            <polygon points="300,255 330,230 330,260" fill="#d97706" opacity="0.85"/>
+            <text x="344" y="195" text-anchor="middle" fill="#fbbf24" font-family="Orbitron" font-size="10.5" font-weight="900">2. PENYARING SDR &amp; CEK DAM</text>
+            <text x="344" y="305" text-anchor="middle" fill="#fde68a" font-family="JetBrains Mono" font-size="10">SDR = ${nf(res.sdr, 4)} | TE = ${nf(R.te, 2)}</text>
+
+            <!-- 3. Alur Sungai Utama (Jragung & Tuntang L = 78 km) -->
+            <polygon points="358,255 680,290 680,350 358,350" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+            <polygon points="358,242 680,275 680,315 358,268" fill="url(#riverFlowGrad)"/>
+            <text x="515" y="242" text-anchor="middle" fill="#38bdf8" font-family="Orbitron" font-size="11" font-weight="900">3. ANGKUTAN SEDIMEN SUNGAI (L = ${nf(R.L, 0)} KM)</text>
+            <text x="515" y="262" text-anchor="middle" fill="#ffffff" font-family="JetBrains Mono" font-size="10.5" font-weight="bold">Yield (SY) = ${nf(res.SY, 0)} ton/th</text>
+            <text x="515" y="332" text-anchor="middle" fill="#cbd5e1" font-family="JetBrains Mono" font-size="10">Suspensi: ${nf(res.sus, 0)} t/th | Bedload: ${nf(res.bed, 0)} t/th</text>
+
+            <!-- 4. Muara & Pesisir Laut Jawa (Input DSS Sedimen Pro) -->
+            <polygon points="680,275 900,275 900,365 680,365" fill="#0369a1" opacity="0.88"/>
+            <ellipse cx="745" cy="295" rx="52" ry="16" fill="#f59e0b" opacity="0.55"/>
+            <text x="790" y="258" text-anchor="middle" fill="#34d399" font-family="Orbitron" font-size="11" font-weight="900">4. MUARA / DSS SEDIMEN PRO</text>
+            <text x="790" y="315" text-anchor="middle" fill="#fef08a" font-family="JetBrains Mono" font-size="11.5" font-weight="bold">Qs,in = ${nf(res.V, 0)} m³/th</text>
+            <text x="790" y="335" text-anchor="middle" fill="#e0f2fe" font-family="JetBrains Mono" font-size="10">(${nf(R.L > 0 ? res.V / R.L : 0, 0)} m³/th/km)</text>
+
+            <!-- Kotak Telemetri Kanan Atas SVG -->
+            <g transform="translate(565, 24)">
+                <rect x="0" y="0" width="330" height="175" rx="10" fill="#020617" fill-opacity="0.92" stroke="#0284c7" stroke-width="1.8"/>
+                <text x="14" y="24" fill="#fbbf24" font-family="Orbitron" font-size="11" font-weight="900">TELEMETRI NERACA SEDIMEN DAS:</text>
+                <text x="14" y="46" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10.5">• Debit Air Rerata (Q): <tspan fill="#38bdf8" font-weight="bold">${nf(R.Q, 1)} m³/s</tspan></text>
+                <text x="14" y="66" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10.5">• Berat Volume (ρb): <tspan fill="#34d399" font-weight="bold">${nf(R.rho, 2)} t/m³</tspan></text>
+                <text x="14" y="86" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10.5">• SSC Model vs Terukur: <tspan fill="#c084fc" font-weight="bold">${nf(res.conc, 1)} vs ${nf(R.ssc, 1)} mg/L</tspan></text>
+                <text x="14" y="106" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10.5">• Fluks Laju Massa: <tspan fill="#fde047" font-weight="bold">${nf(res.kgs, 2)} kg/detik</tspan></text>
+                <rect x="14" y="118" width="302" height="44" rx="6" fill="${statusOk ? '#064e3b' : '#7c2d12'}" stroke="${statusOk ? '#10b981' : '#f59e0b'}" stroke-width="1.5"/>
+                <text x="165" y="137" text-anchor="middle" fill="#ffffff" font-family="Orbitron" font-size="11" font-weight="900">${statusOk ? 'KALIBRASI SELARAS (VALID)' : 'PERLU KALIBRASI SDR → SSC'}</text>
+                <text x="165" y="153" text-anchor="middle" fill="#bae6fd" font-family="JetBrains Mono" font-size="9.5">Rasio Model/SSC = ${nf(ras, 2)}x • Klik Kalibrasi Otomatis</text>
+            </g>
+        `;
+    }
+
+    /* ---------- CANVAS CHARTS (Erosi, SDR, Bulanan Arnoldus) ---------- */
+    function fitCanvas(cv) {
+        if (!cv) return null;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = cv.clientWidth || 560;
+        const h = cv.clientHeight || 240;
+        if (cv.width !== Math.floor(w * dpr) || cv.height !== Math.floor(h * dpr)) {
+            cv.width = Math.floor(w * dpr);
+            cv.height = Math.floor(h * dpr);
+        }
+        const c = cv.getContext('2d');
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.clearRect(0, 0, w, h);
+        return { c, w, h };
+    }
+
+    function drawAxisGrid(c, w, h, pad) {
+        c.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+        c.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + ((h - pad.t - pad.b) * i) / 4;
+            c.beginPath(); c.moveTo(pad.l, y); c.lineTo(w - pad.r, y); c.stroke();
+        }
+    }
+
+    function drawBarsChart(cv, res) {
+        const f = fitCanvas(cv); if (!f) return;
+        const { c, w, h } = f, pad = { l: 56, r: 14, t: 16, b: 28 };
+        drawAxisGrid(c, w, h, pad);
+        const max = Math.max(...res.rows.map(r => r.ero), 1);
+        const n = Math.max(res.rows.length, 1);
+        const bw = Math.max(7, ((w - pad.l - pad.r) / n) * 0.62);
+
+        res.rows.forEach((r, i) => {
+            const x = pad.l + ((w - pad.l - pad.r) / n) * (i + 0.5);
+            const bh = ((h - pad.t - pad.b) * r.ero) / max;
+            c.fillStyle = '#3b82f6';
+            c.fillRect(x - bw / 2, h - pad.b - bh, bw, bh);
+
+            const y2 = ((h - pad.t - pad.b) * (r.ero * res.sdr * R.te)) / max;
+            c.fillStyle = '#10b981';
+            c.fillRect(x - bw / 2, h - pad.b - y2, bw * 0.48, y2);
+
+            c.fillStyle = '#94a3b8';
+            c.font = '9.5px JetBrains Mono, monospace';
+            c.textAlign = 'center';
+            c.fillText('U' + (i + 1), x, h - 9);
+        });
+        c.fillStyle = '#7dd3fc';
+        c.textAlign = 'left';
+        c.fillText(nf(max, 0) + ' t/th', 4, pad.t + 6);
+    }
+
+    function drawSDRChart(cv, res) {
+        const f = fitCanvas(cv); if (!f) return;
+        const { c, w, h } = f, pad = { l: 50, r: 18, t: 16, b: 28 };
+        drawAxisGrid(c, w, h, pad);
+        const amax = Math.max(1500, res.areaKm * 2.1), sdrMax = 0.55;
+
+        c.beginPath();
+        for (let i = 0; i <= 120; i++) {
+            const a = 1 + (i * (amax - 1)) / 120;
+            const s = Math.min(sdrMax, Math.max(0.01, R.al * Math.pow(a, R.be)));
+            const x = pad.l + ((w - pad.l - pad.r) * (a - 1)) / (amax - 1);
+            const y = h - pad.b - ((h - pad.t - pad.b) * s) / sdrMax;
+            i ? c.lineTo(x, y) : c.moveTo(x, y);
+        }
+        c.strokeStyle = '#38bdf8';
+        c.lineWidth = 2.2;
+        c.stroke();
+
+        const xc = pad.l + ((w - pad.l - pad.r) * (res.areaKm - 1)) / (amax - 1);
+        const yc = h - pad.b - ((h - pad.t - pad.b) * Math.min(res.sdr, sdrMax)) / sdrMax;
+        c.beginPath(); c.arc(xc, yc, 5.5, 0, Math.PI * 2);
+        c.fillStyle = '#f59e0b'; c.fill();
+        c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
+
+        c.fillStyle = '#fde047';
+        c.font = 'bold 10px JetBrains Mono, monospace';
+        c.fillText(`DAS (${nf(res.areaKm, 0)} km², SDR=${nf(res.sdr, 4)})`, Math.min(xc + 8, w - 195), Math.max(yc - 8, 16));
+    }
+
+    function drawMonthlyChart(cv, res) {
+        const f = fitCanvas(cv); if (!f) return;
+        const { c, w, h } = f, pad = { l: 56, r: 52, t: 16, b: 28 };
+        drawAxisGrid(c, w, h, pad);
+        const ymax = Math.max(...res.w, 0.01);
+        const rmax = Math.max(...R.rain, 1);
+        const bw = ((w - pad.l - pad.r) / 12) * 0.56;
+
+        res.w.forEach((v, i) => {
+            const x = pad.l + ((w - pad.l - pad.r) * (i + 0.5)) / 12;
+            const bh = ((h - pad.t - pad.b) * v) / ymax;
+            c.fillStyle = '#0284c7';
+            c.fillRect(x - bw / 2, h - pad.b - bh, bw, bh);
+            c.fillStyle = '#cbd5e1';
+            c.font = '10px JetBrains Mono, monospace';
+            c.textAlign = 'center';
+            c.fillText(MONTHS[i], x, h - 9);
+        });
+
+        c.beginPath();
+        R.rain.forEach((v, i) => {
+            const x = pad.l + ((w - pad.l - pad.r) * (i + 0.5)) / 12;
+            const y = h - pad.b - (((h - pad.t - pad.b) * v) / rmax) * 0.88;
+            i ? c.lineTo(x, y) : c.moveTo(x, y);
+        });
+        c.strokeStyle = '#f59e0b';
+        c.lineWidth = 2.2;
+        c.stroke();
+
+        c.textAlign = 'left'; c.fillStyle = '#38bdf8';
+        c.fillText(nf(ymax * res.SY, 0) + ' t/bln', 4, pad.t + 6);
+        c.textAlign = 'right'; c.fillStyle = '#fbbf24';
+        c.fillText(nf(rmax, 0) + ' mm', w - 4, pad.t + 6);
+    }
+
+    /* ---------- RENDER SEMUA KOMPONEN SECARA REAL-TIME ---------- */
+    function renderAll() {
+        const res = calc();
+        R.res = res;
+
+        // Update Unit cells without losing focus
+        res.rows.forEach((r, i) => {
+            const cA = $('cell_A_' + i);
+            const cE = $('cell_E_' + i);
+            if (cA) cA.textContent = nf(r.A, 2);
+            if (cE) cE.textContent = nf(r.ero, 0);
+        });
+
+        // KPIs
+        $('k_ero').textContent = nf(res.totE, 0);
+        $('k_sdr').textContent = nf(res.sdr, 4);
+        $('k_sdr_sub').textContent = res.isManualSdr ? 'terkalibrasi manual/SSC' : 'empiris otomatis (α·A^β)';
+        $('k_sy').textContent = nf(res.SY, 0);
+        $('k_vol').textContent = nf(res.V, 0);
+        $('k_sus').textContent = nf(res.sus, 0);
+        $('k_bed').textContent = nf(res.bed, 0);
+        $('d_area').value = nf(res.areaKm, 2);
+
+        // Kontribusi Table
+        const cb = $('tbContrib');
+        cb.innerHTML = '';
+        const sorted = res.rows.slice().sort((a, b) => b.ero - a.ero);
+        sorted.forEach(r => {
+            const pct = res.totE > 0 ? (r.ero / res.totE) * 100 : 0;
+            const yld = r.ero * res.sdr * R.te;
+            const col = pct > 30 ? '#ef4444' : (pct > 10 ? '#f59e0b' : '#10b981');
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                `<td class="font-sans font-semibold text-white">${r.u.n}</td>` +
+                `<td class="n">${nf(r.u.a, 2)}</td>` +
+                `<td class="n text-sky-300">${nf(r.A, 2)}</td>` +
+                `<td class="n font-bold text-amber-300">${nf(r.ero, 0)}</td>` +
+                `<td class="n text-emerald-400 font-bold">${nf(yld, 0)}</td>` +
+                `<td class="n font-bold">${nf(pct, 1)} %</td>` +
+                `<td><div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div style="width:${Math.min(100, pct)}%;background:${col}" class="h-full"></div></div></td>`;
+            cb.appendChild(tr);
+        });
+        $('sumUnit').textContent = `${nf(res.areaKm, 2)} km² • ${U.length} Unit Lahan`;
+
+        // DSS Outputs
+        $('o_qsin').textContent = nf(res.V, 0);
+        $('o_qskm').textContent = nf(R.L > 0 ? res.V / R.L : NaN, 0);
+        $('o_kg').textContent = nf(res.kgs, 2);
+        $('o_conc').textContent = nf(res.conc, 1);
+
+        const ras = R.ssc > 0 ? res.conc / R.ssc : NaN;
+        const sdrTarget = (R.ssc * 1e-6 * res.Qv) / Math.max(res.totE * R.te, 1);
+
+        const calBadge = $('blueprintCalBadge');
+        if (isFinite(ras)) {
+            if (ras > 1.6) {
+                calBadge.textContent = `OVER-ESTIMATE (${nf(ras, 2)}x SSC)`;
+                calBadge.className = 'px-2.5 py-0.5 rounded bg-rose-600 text-white font-black text-[10.5px]';
+            } else if (ras < 0.6) {
+                calBadge.textContent = `UNDER-ESTIMATE (${nf(ras, 2)}x SSC)`;
+                calBadge.className = 'px-2.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[10.5px]';
+            } else {
+                calBadge.textContent = `SELARAS SSC (${nf(ras, 2)}x • VALID)`;
+                calBadge.className = 'px-2.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[10.5px]';
+            }
+        }
+
+        $('noteKal').innerHTML =
+            `Konsentrasi ekivalen model <b class="text-sky-300">${nf(res.conc, 1)} mg/L</b> dibandingkan SSC terukur <b class="text-emerald-300">${nf(R.ssc, 1)} mg/L</b> → rasio <b class="text-amber-300">${nf(ras, 2)}x</b>. ` +
+            (isFinite(ras)
+                ? (ras > 1.6
+                    ? `Model lebih tinggi dari pengukuran lapangan: klik tombol <b>"Kalibrasi Otomatis SDR → SSC"</b> untuk menyetel SDR ke <b>${nf(sdrTarget, 4)}</b>.`
+                    : (ras < 0.6
+                        ? `Model lebih rendah dari lapangan: periksa nilai C, LS, atau tambahkan sumber erosi tebing sungai/longsor.`
+                        : `Selisih dalam batas wajar (±60%), parameter pasokan sedimen Qs,in = <b>${nf(res.V, 0)} m³/th</b> siap digunakan pada DSS Sedimen Pro.`))
+                : '');
+
+        // Smart Diagnosis Summary on Dashboard
+        const top1 = sorted[0] || { u: { n: '-' }, ero: 0 };
+        const top2 = sorted[1] || { u: { n: '-' }, ero: 0 };
+        const p1 = res.totE > 0 ? (top1.ero / res.totE) * 100 : 0;
+        const p2 = res.totE > 0 ? (top2.ero / res.totE) * 100 : 0;
+        $('dashSmartDiagnosis').innerHTML = `
+            <div>• <b>Sumber Erosi Dominan:</b> Unit <b>${top1.u.n}</b> menyumbang <b class="text-amber-300">${nf(top1.ero, 0)} t/th (${nf(p1, 1)}%)</b> dan <b>${top2.u.n}</b> menyumbang <b class="text-amber-300">${nf(top2.ero, 0)} t/th (${nf(p2, 1)}%)</b>.</div>
+            <div>• <b>Solusi Konservasi Hulu:</b> Penurunan faktor C (agroforestri) dan faktor P (terasering bangku) sebesar 40% pada kedua unit tersebut dapat memangkas pasokan sedimen hingga <b>${nf((top1.ero + top2.ero) * 0.4 * res.sdr * R.te, 0)} ton/th</b>.</div>
+            <div>• <b>Rekomendasi Kalibrasi:</b> Nilai SDR optimal terhadap pos duga air (SSC ${nf(R.ssc, 0)} mg/L) adalah <b class="text-emerald-300">${nf(sdrTarget, 4)}</b>.</div>
+        `;
+
+        // Neraca Konversi Table
+        const convRows = [
+            ['Erosi Bruto DAS', 'Σ (R·K·LS·C·P·luas)', res.totE, 'ton/tahun', 0],
+            ['Rasio Pengiriman (SDR)', res.isManualSdr ? 'Kalibrasi Manual / SSC' : 'α·A^β (Empiris)', res.sdr, '–', 4],
+            ['Trap Efficiency Cek Dam (TE)', 'Faktor lolos sedimen hulu', R.te, '–', 2],
+            ['Sedimen Yield (SY)', 'Erosi × SDR × TE', res.SY, 'ton/tahun', 0],
+            ['Volume Sedimen (Qs,in)', 'Yield / Berat Volume ρb', res.V, 'm³/tahun', 0],
+            ['Muatan Tersuspensi', '(1 − fb) × Yield', res.sus, 'ton/tahun', 0],
+            ['Muatan Dasar (Bedload)', 'fb × Yield', res.bed, 'ton/tahun', 0],
+            ['Debit Massa Sedimen', 'Yield / detik setahun', res.kgs, 'kg/s', 2],
+            ['Konsentrasi Ekivalen (SSC)', 'Yield / Volume Limpasan Air', res.conc, 'mg/L', 1]
+        ];
+        const tbConv = $('tbConv');
+        tbConv.innerHTML = '';
+        convRows.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="font-sans font-medium">${r[0]}</td><td class="n font-bold text-sky-300">${nf(r[2], r[4])}</td><td>${r[3]}</td><td class="font-sans text-slate-400">${r[1]}</td>`;
+            tbConv.appendChild(tr);
+        });
+
+        // OAT Sensitivity Table (+10% on each parameter)
+        const sensDefs = [
+            { label: 'R (Erosivitas Hujan)', key: 'R' },
+            { label: 'K (Erodibilitas Tanah)', key: 'K' },
+            { label: 'LS (Panjang–Kemiringan Lereng)', key: 'LS' },
+            { label: 'C (Tutupan Vegetasi Lahan)', key: 'C' },
+            { label: 'P (Tindakan Konservasi)', key: 'P' },
+            { label: 'SDR (Rasio Pengiriman Sedimen)', key: 'SDR' },
+            { label: 'TE (Faktor Lolos Cek Dam)', key: 'TE' },
+            { label: 'ρb (Berat Volume Sedimen)', key: 'RHO' }
+        ];
+        const tbSens = $('tbSens');
+        tbSens.innerHTML = '';
+        sensDefs.forEach(s => {
+            let tot = 0;
+            U.forEach(u => {
+                const rV = u.R * (s.key === 'R' ? 1.1 : 1);
+                const kV = u.K * (s.key === 'K' ? 1.1 : 1);
+                const lsV = u.LS * (s.key === 'LS' ? 1.1 : 1);
+                const cV = u.C * (s.key === 'C' ? 1.1 : 1);
+                const pV = u.P * (s.key === 'P' ? 1.1 : 1);
+                tot += rV * kV * lsV * cV * pV * (+u.a || 0);
+            });
+            const sdrP = res.sdr * (s.key === 'SDR' ? 1.1 : 1);
+            const teP = R.te * (s.key === 'TE' ? 1.1 : 1);
+            const rhoP = R.rho * (s.key === 'RHO' ? 1.1 : 1);
+            const syP = tot * sdrP * teP;
+            const vP = syP / rhoP;
+            const dv = syP - res.SY;
+            const pctV = res.V > 0 ? ((vP - res.V) / res.V) * 100 : 0;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                `<td class="font-sans font-medium">${s.label}</td>` +
+                `<td class="n text-sky-300">+10%</td>` +
+                `<td class="n">${nf(tot, 0)}</td>` +
+                `<td class="n font-bold">${nf(syP, 0)}</td>` +
+                `<td class="n text-cyan-300">${nf(vP, 0)}</td>` +
+                `<td class="n text-amber-300">${dv >= 0 ? '+' : ''}${nf(dv, 0)}</td>` +
+                `<td class="n"><span class="tag-pill ${pctV < 0 ? 'tag-ok' : 'tag-warn'}">${pctV >= 0 ? '+' : ''}${nf(pctV, 2)}%</span></td>`;
+            tbSens.appendChild(tr);
+        });
+
+        // Field Verification Table
+        const tbCheck = $('tbCheck');
+        tbCheck.innerHTML = '';
+        const chkList = [
+            ['Konsentrasi SSC (mg/L)', res.conc, R.ssc, isFinite(ras) ? (ras > 1.6 ? 'bad' : (ras < 0.6 ? 'warn' : 'ok')) : 'warn', isFinite(ras) ? (ras > 1.6 ? ' menyimpang' : (ras < 0.6 ? 'perlu koreksi' : 'selaras')) : 'tanpa acuan'],
+            ['SDR Aktif vs Empiris', res.sdr, res.sdrAuto, 'ok', res.isManualSdr ? 'kalibrasi SSC' : 'empiris auto'],
+            ['Nisbah Bedload (fb)', R.fb, 0.15, 'ok', 'wajar (0,10–0,25)']
+        ];
+        chkList.forEach(it => {
+            const rVal = (isFinite(it[2]) && it[2] > 0) ? it[1] / it[2] : NaN;
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                `<td class="font-sans">${it[0]}</td>` +
+                `<td class="n font-bold">${nf(it[1], it[1] < 2 ? 3 : 1)}</td>` +
+                `<td class="n">${isFinite(it[2]) ? nf(it[2], it[2] < 2 ? 3 : 1) : '—'}</td>` +
+                `<td class="n">${isFinite(rVal) ? nf(rVal, 2) + 'x' : '—'}</td>` +
+                `<td><span class="tag-pill tag-${it[3]}">${it[4]}</span></td>`;
+            tbCheck.appendChild(tr);
+        });
+
+        $('rainTotalBadge').textContent = `Total Hujan Tahunan: ${nf(res.sumP, 0)} mm/th`;
+        $('sdrCurveMeta').textContent = `Luas ${nf(res.areaKm, 1)} km² → SDR = ${nf(res.sdr, 4)}`;
+        $('chipDas').textContent = `${U.length} UNIT LAHAN • ${nf(res.areaKm, 2)} KM²`;
+
+        renderUsleBlueprintSvg(res);
+        drawBarsChart($('cvErosion'), res);
+        drawSDRChart($('cvSDR'), res);
+        drawMonthlyChart($('cvMonthly'), res);
+        buildReportHTML(res);
+        buildJsonBlock(res);
+    }
+
+    function buildReportHTML(res) {
+        const ras = R.ssc > 0 ? res.conc / R.ssc : NaN;
+        const dl = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+        let html = `<h1>LAPORAN TEKNIS: KONVERSI EROSI LAHAN (USLE) MENJADI PASOKAN SEDIMEN SUNGAI (DAS JRAGUNG &amp; TUNTANG)</h1>`;
+        html += `<p style="color:#475569;font-size:11px;margin-bottom:12px">Dihasilkan otomatis pada ${dl} • USLE–SDR Sediment Yield Converter v2.5 Pro • Ir. Mohamad Hartadi</p>`;
+        html += `<h2>1. Ringkasan Eksekutif</h2><p>Erosi bruto DAS dihitung sebesar <b>${nf(res.totE, 0)} ton/tahun</b> pada luas agregat <b>${nf(res.areaKm, 2)} km²</b> (${U.length} unit lahan). Dengan rasio pengiriman sedimen (SDR) sebesar <b>${nf(res.sdr, 4)}</b> dan faktor lolos bangunan hulu (TE) sebesar <b>${nf(R.te, 2)}</b>, sedimen yang mencapai outlet sungai adalah <b>${nf(res.SY, 0)} ton/tahun</b> atau <b>${nf(res.V, 0)} m³/tahun</b> (berat volume ${nf(R.rho, 2)} t/m³). Muatan tersuspensi sebesar <b>${nf(res.sus, 0)} ton/tahun</b> dan bedload sebesar <b>${nf(res.bed, 0)} ton/tahun</b>.</p>`;
+        html += `<h2>2. Parameter Hidrologi &amp; Pengiriman Sedimen</h2><table><tr><th>Parameter</th><th>Nilai</th></tr>` +
+            `<tr><td>Luas DAS</td><td>${nf(res.areaKm, 2)} km²</td></tr>` +
+            `<tr><td>Panjang sungai utama (L)</td><td>${nf(R.L, 1)} km</td></tr>` +
+            `<tr><td>Debit rerata tahunan (Q)</td><td>${nf(R.Q, 1)} m³/s</td></tr>` +
+            `<tr><td>Koefisien SDR (α, β) &amp; SDR Terpakai</td><td>α = ${nf(R.al, 2)}, β = ${nf(R.be, 3)} → SDR = ${nf(res.sdr, 4)}</td></tr>` +
+            `<tr><td>Fraksi bedload (fb) &amp; Berat volume (ρb)</td><td>fb = ${nf(R.fb, 2)} | ρb = ${nf(R.rho, 2)} t/m³</td></tr></table>`;
+        html += `<h2>3. Hasil Perhitungan per Unit Lahan</h2><table><tr><th>Unit Lahan</th><th>Luas (ha)</th><th>E (t/ha/th)</th><th>Erosi Bruto (t/th)</th><th>Yield Outlet (t/th)</th></tr>`;
+        res.rows.forEach(r => {
+            html += `<tr><td>${r.u.n}</td><td>${nf(r.u.a, 2)}</td><td>${nf(r.A, 2)}</td><td>${nf(r.ero, 0)}</td><td>${nf(r.ero * res.sdr * R.te, 0)}</td></tr>`;
+        });
+        html += `</table>`;
+        html += `<h2>4. Risalah Teknis &amp; Rekomendasi</h2><p>Konsentrasi sedimen ekivalen model adalah <b>${nf(res.conc, 1)} mg/L</b> dibandingkan SSC terukur <b>${nf(R.ssc, 1)} mg/L</b> (rasio <b>${nf(ras, 2)}x</b>). Pasokan sedimen hulu untuk model pesisir DSS Sedimen Pro adalah <b>Qs,in = ${nf(res.V, 0)} m³/tahun</b> (${nf(R.L > 0 ? res.V / R.L : 0, 0)} m³/th/km).</p>`;
+        $('repPrev').innerHTML = html;
+        $('repStamp').textContent = dl;
+        return html;
+    }
+
+    function buildJsonBlock(res) {
+        const p = {
+            model: 'USLE-SDR v2.5 Pro',
+            author: 'Ir. Mohamad Hartadi',
+            luas_km2: +res.areaKm.toFixed(2),
+            erosi_bruto_t_th: +res.totE.toFixed(0),
+            sdr: +res.sdr.toFixed(4),
+            trap_efficiency: +R.te.toFixed(2),
+            yield_t_th: +res.SY.toFixed(0),
+            berat_volume_t_m3: +R.rho.toFixed(2),
+            volume_m3_th: +res.V.toFixed(0),
+            fraksi_bedload: +R.fb.toFixed(2),
+            suspensi_t_th: +res.sus.toFixed(0),
+            bedload_t_th: +res.bed.toFixed(0),
+            qsin_dss_m3_th: +res.V.toFixed(0),
+            qsin_per_km: +(R.L > 0 ? res.V / R.L : 0).toFixed(0),
+            konsentrasi_mg_l: +res.conc.toFixed(1)
+        };
+        $('outParam').textContent = JSON.stringify(p, null, 2);
+        R.param = p;
+    }
+
+    /* ---------- PRESETS & KALIBRASI OTOMATIS ---------- */
+    function calibrateSdrFromSsc() {
+        const res = R.res || calc();
+        const target = R.ssc * 1e-6 * (R.Q * 31.536e6);
+        const sdr = Math.min(0.95, Math.max(0.0005, target / Math.max(res.totE * R.te, 1)));
+        $('d_sdr').value = sdr.toFixed(4);
+        renderAll();
+    }
+
+    function clearManualSdr() {
+        $('d_sdr').value = '';
+        renderAll();
+    }
+
+    function applyDasPreset(mode) {
+        ['btnPresetBase','btnPresetCal','btnPresetKons'].forEach(id => {
+            const b = $(id);
+            if (b) b.className = 'hdr-chip bg-slate-800 text-slate-300 border border-slate-700 hover:text-white font-bold';
+        });
+        if (mode === 'baseline') {
+            $('btnPresetBase').className = 'hdr-chip bg-sky-900 text-white border border-sky-400 font-bold';
+            U = JSON.parse(JSON.stringify(U0));
+            $('d_sdr').value = '';
+            $('d_te').value = '0.90';
+        } else if (mode === 'calibrated') {
+            $('btnPresetCal').className = 'hdr-chip bg-sky-900 text-white border border-sky-400 font-bold';
+            U = JSON.parse(JSON.stringify(U0));
+            $('d_te').value = '0.90';
+            buildUnitTableDOM();
+            calibrateSdrFromSsc();
+            return;
+        } else if (mode === 'konservasi') {
+            $('btnPresetKons').className = 'hdr-chip bg-sky-900 text-white border border-sky-400 font-bold';
+            U = JSON.parse(JSON.stringify(U0)).map(u => {
+                if (u.n.includes('Perkebunan') || u.n.includes('Permukiman')) {
+                    u.C = +(u.C * 0.55).toFixed(3);
+                    u.P = 0.50;
+                }
+                return u;
+            });
+            $('d_te').value = '0.60';
+            $('d_sdr').value = '';
+        }
+        buildUnitTableDOM();
+        renderAll();
+    }
+
+    /* ============================================================================
+       BAGIAN 4: SMART AI CHATBOT (SOLUSI DETAIL + LINK WIKIPEDIA, GOOGLE, AI)
+       ============================================================================ */
+    function buildCitationLinksHTML(queryTopic) {
+        const qEnc = encodeURIComponent(queryTopic + ' USLE Sediment Delivery Ratio Hydrology');
+        const qId = encodeURIComponent(queryTopic + ' erosi DAS sedimen sungai');
+        return `
+            <div class="mt-2.5 pt-2 border-t border-slate-700/80 space-y-1.5">
+                <div class="text-[10px] font-mono text-amber-300 font-bold uppercase">🔗 Sumber Referensi &amp; Eksplorasi AI Eksternal:</div>
+                <div class="flex flex-wrap gap-1.5">
+                    <a href="https://en.wikipedia.org/wiki/Universal_Soil_Loss_Equation" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wiki: USLE ↗</a>
+                    <a href="https://id.wikipedia.org/wiki/Erosi" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wiki: Erosi &amp; Konservasi ↗</a>
+                    <a href="https://en.wikipedia.org/wiki/Sediment_transport" target="_blank" rel="noopener noreferrer" class="ref-badge ref-wiki">📖 Wiki: Sediment Transport ↗</a>
+                    <a href="https://www.google.com/search?q=${qId}" target="_blank" rel="noopener noreferrer" class="ref-badge ref-google">🔍 Google Search ↗</a>
+                    <a href="https://scholar.google.com/scholar?q=${qEnc}" target="_blank" rel="noopener noreferrer" class="ref-badge ref-scholar">🎓 Google Scholar ↗</a>
+                    <a href="https://www.perplexity.ai/search?q=${qEnc}" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">🤖 Perplexity AI ↗</a>
+                    <a href="https://chatgpt.com/?q=${qId}" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">💬 ChatGPT ↗</a>
+                    <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">✨ Claude AI ↗</a>
+                    <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer" class="ref-badge ref-ai">🌟 Gemini AI ↗</a>
+                </div>
+            </div>
+        `;
+    }
+
+    function generateSmartBotAnswer(q) {
+        const res = R.res || calc();
+        const sorted = res.rows.slice().sort((a, b) => b.ero - a.ero);
+        const top1 = sorted[0] || { u: { n: 'Permukiman' }, ero: 0, A: 0 };
+        const top2 = sorted[1] || { u: { n: 'Perkebunan' }, ero: 0, A: 0 };
+        const ras = R.ssc > 0 ? res.conc / R.ssc : 1;
+        const targetMass = R.ssc * 1e-6 * res.Qv;
+        const sdrRec = Math.min(0.95, Math.max(0.0005, targetMass / Math.max(res.totE * R.te, 1)));
+        const l = q.toLowerCase();
+
+        if (l.includes('kalibrasi') || l.includes('ssc')) {
+            return {
+                topic: 'Kalibrasi Sediment Delivery Ratio SDR dengan Suspended Sediment Concentration SSC',
+                body: `
+                    <b class="text-emerald-300 block mb-1">🎯 SOLUSI DETAIL KALIBRASI SDR TERHADAP SSC POS DUGA AIR (${nf(R.ssc, 0)} mg/L):</b>
+                    1. <b>Beban Sedimen Tahunan Terukur:</b> Dengan debit rerata Q = ${nf(R.Q, 1)} m³/s, volume limpasan tahunan adalah <b>${nf(res.Qv / 1e6, 2)} juta m³/th</b>. Pada SSC = ${nf(R.ssc, 1)} mg/L, massa sedimen terukur di sungai adalah <b>${nf(targetMass, 0)} ton/tahun</b>.<br>
+                    2. <b>Perbandingan Model Saat Ini:</b> Erosi bruto USLE = <b>${nf(res.totE, 0)} ton/th</b> dan SSC model = <b>${nf(res.conc, 1)} mg/L</b> (rasio <b>${nf(ras, 2)}x</b>).<br>
+                    3. <b>Rumus Kalibrasi Langsung:</b> <code>SDR_kalibrasi = SY_terukur / (Erosi_Bruto × TE) = ${nf(sdrRec, 4)}</code>.<br>
+                    4. <b>Tindakan Cepat:</b> Klik tombol hijau <b>"Kalibrasi Otomatis SDR → SSC"</b> di bilah navigasi agar SDR langsung disetel ke <b>${nf(sdrRec, 4)}</b>.
+                `
+            };
+        }
+        if (l.includes('konservasi') || l.includes('sabo') || l.includes('cek dam') || l.includes('rekomendasi')) {
+            return {
+                topic: 'Konservasi Lahan Vegetatif Terasering dan Sabo Check Dam Pengendali Sedimen',
+                body: `
+                    <b class="text-amber-300 block mb-1">🌿 SOLUSI REKAYASA KONSERVASI LAHAN &amp; CEK DAM HULU DAS JRAGUNG &amp; TUNTANG:</b>
+                    • <b>Unit Kritis #1 (${top1.u.n}):</b> Erosi ${nf(top1.ero, 0)} t/th (Laju ${nf(top1.A, 1)} t/ha/th).<br>
+                    • <b>Unit Kritis #2 (${top2.u.n}):</b> Erosi ${nf(top2.ero, 0)} t/th (Laju ${nf(top2.A, 1)} t/ha/th).<br><br>
+                    <b>Langkah Penanganan Terukur:</b><br>
+                    1. <b>Agroforestri &amp; Cover Crop (Faktor C):</b> Menurunkan nilai C pada Perkebunan dari 0,50 menjadi 0,15.<br>
+                    2. <b>Terasering Bangku &amp; Drainase Resapan (Faktor P):</b> Menurunkan nilai P pada lereng curam (LS = 3,04) dari 1,00 menjadi 0,40.<br>
+                    3. <b>Pembangunan Seri Sabo / Check Dam (Faktor TE):</b> Menurunkan faktor lolos sedimen (TE) dari 0,90 menjadi 0,55–0,65 sehingga sedimen kasar (bedload) tertahan di hulu. Anda dapat menguji skenario ini dengan menekan tombol <b>"3. SKENARIO REBOISASI &amp; SABO DAM"</b> di toolbar atas!
+                `
+            };
+        }
+        if (l.includes('dss') || l.includes('pesisir') || l.includes('pantai') || l.includes('qsin')) {
+            return {
+                topic: 'Coastal Sediment Budget River Supply Qs in DSS Sedimen Pro',
+                body: `
+                    <b class="text-sky-300 block mb-1">🌊 INTEGRASI PASOKAN SEDIMEN SUNGAI (Qs,in) KE DSS SEDIMEN PRO:</b>
+                    • <b>Volume Total Tahunan (Qs,in):</b> <b class="text-emerald-300">${nf(res.V, 0)} m³/tahun</b> (pada ρb = ${nf(R.rho, 2)} t/m³).<br>
+                    • <b>Pasokan Spesifik per km Sungai:</b> <b>${nf(R.L > 0 ? res.V / R.L : 0, 0)} m³/th/km</b>.<br>
+                    • <b>Porsi Pembangun Garis Pantai (Bedload ${Math.round(R.fb * 100)}%):</b> <b>${nf(res.V * R.fb, 0)} m³/tahun</b>.<br>
+                    • <b>Porsi Plume Muara (Suspended Load ${Math.round((1 - R.fb) * 100)}%):</b> <b>${nf(res.V * (1 - R.fb), 0)} m³/tahun</b>.<br>
+                    Gunakan tombol <b>"Unduh Parameter JSON (DSS)"</b> pada tab Laporan &amp; Ekspor untuk mengimpor langsung ke DSS Sedimen Pro.
+                `
+            };
+        }
+
+        return {
+            topic: 'Analisis Erosi USLE dan Sediment Delivery Ratio DAS Jragung Tuntang',
+            body: `
+                <b class="text-sky-300 block mb-1">📊 DIAGNOSIS KOMPREHENSIF REAL-TIME DAS JRAGUNG &amp; TUNTANG:</b>
+                • <b>Luas Total DAS:</b> ${nf(res.areaKm, 2)} km² (${U.length} unit lahan)<br>
+                • <b>Erosi Bruto Tahunan:</b> <b class="text-amber-300">${nf(res.totE, 0)} ton/th</b><br>
+                • <b>SDR Terpakai:</b> ${nf(res.sdr, 4)} &amp; <b>TE:</b> ${nf(R.te, 2)} → <b>Sedimen Yield (SY):</b> <b class="text-emerald-300">${nf(res.SY, 0)} ton/th</b><br>
+                • <b>Volume Pasokan Sedimen (Qs,in):</b> <b class="text-cyan-300">${nf(res.V, 0)} m³/th</b><br>
+                • <b>Konsentrasi Ekivalen:</b> ${nf(res.conc, 1)} mg/L vs <b>SSC Terukur:</b> ${nf(R.ssc, 1)} mg/L (Rasio ${nf(ras, 2)}x)<br><br>
+                <b>Solusi Rekayasa:</b> Prioritaskan pengendalian erosi pada unit <b>${top1.u.n}</b> dan <b>${top2.u.n}</b>, serta gunakan fitur <b>Kalibrasi Otomatis SDR → SSC</b> agar model selaras dengan pengukuran pos duga air.
+            `
+        };
+    }
+
+    function appendBotChatBubble(titleText, htmlBody, topicQuery) {
+        const box = $('chatMessagesBox');
+        if (!box) return;
+        const plainForSpeech = htmlBody.replace(/<[^>]+>/g, ' ');
+        const msgId = 'botmsg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        const html = `
+            <div id="${msgId}" class="p-3 rounded-xl bg-slate-900 border border-sky-500/40 text-slate-200 leading-relaxed font-sans text-xs">
+                <div class="flex items-center justify-between mb-1.5 border-b border-slate-800 pb-1">
+                    <span class="font-mono font-bold text-sky-400">🤖 JARVIS AI — HIDROLOGI &amp; SEDIMEN</span>
+                    <button type="button" onclick="speakTextID(document.getElementById('${msgId}').innerText)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-600 text-sky-300 hover:text-white font-mono text-[10px] cursor-pointer" title="Dengarkan Penjelasan AI">
+                        🔊 Suara
+                    </button>
+                </div>
+                <div>${htmlBody}</div>
+                ${buildCitationLinksHTML(topicQuery)}
+            </div>
+        `;
+        box.insertAdjacentHTML('beforeend', html);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function toggleChatPanel(forceOpen) {
+        const p = $('floatingChatPanel');
+        if (forceOpen === true) {
+            p.classList.remove('hidden');
+            p.classList.add('flex');
+        } else {
+            p.classList.toggle('hidden');
+            p.classList.toggle('flex');
+        }
+    }
+
+    function sendQuickChat(t) {
+        $('chatUserInput').value = t;
+        processUserChat();
+    }
+
+    function processUserChat() {
+        const inp = $('chatUserInput');
+        const q = inp.value.trim();
+        if (!q) return;
+        inp.value = '';
+        const box = $('chatMessagesBox');
+        box.insertAdjacentHTML('beforeend', `<div class="flex justify-end"><div class="p-2.5 rounded-xl bg-sky-600 text-white text-xs max-w-[90%] font-sans shadow">${q}</div></div>`);
+        box.scrollTop = box.scrollHeight;
+
+        setTimeout(() => {
+            const ans = generateSmartBotAnswer(q);
+            appendBotChatBubble(q, ans.body, ans.topic);
+        }, 280);
+    }
+
+    function askAiDetailedDiagnosis() {
+        toggleChatPanel(true);
+        sendQuickChat('Analisis lengkap hasil erosi & sedimen DAS saat ini beserta solusi teknisnya');
+    }
+
+    function clearChatHistory() {
+        $('chatMessagesBox').innerHTML = '';
+        const initAns = generateSmartBotAnswer('diagnosis');
+        appendBotChatBubble('Sambutan Awal', initAns.body, initAns.topic);
+    }
+
+    /* ============================================================================
+       BAGIAN 5: EKSPOR BLUEPRINT PNG, WORD, JSON, CSV & 13 LAPORAN WORD
+       ============================================================================ */
+    function downloadBlueprintPNG() {
+        const svg = $('usleBlueprintSvg');
+        const ser = new XMLSerializer().serializeToString(svg);
+        const blob = new Blob([ser], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = function() {
+            const cv = document.createElement('canvas');
+            cv.width = 1840; cv.height = 800;
+            const cx = cv.getContext('2d');
+            cx.fillStyle = '#06192e';
+            cx.fillRect(0, 0, cv.width, cv.height);
+            cx.drawImage(img, 0, 0, cv.width, cv.height);
+            URL.revokeObjectURL(url);
+            const a = document.createElement('a');
+            a.download = 'Blueprint_USLE_SDR_DAS_Jragung_Tuntang.png';
+            a.href = cv.toDataURL('image/png');
+            a.click();
+        };
+        img.src = url;
+    }
+
+    function dlFile(txt, name, mime) {
+        const b = new Blob(['\ufeff' + txt], { type: mime + ';charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(b);
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    const USLE_WORD_REPORTS = [
+        {"n": "01", "slug": "RingkasanEksekutifUSLESDR", "title": "RINGKASAN EKSEKUTIF KONVERSI EROSI LAHAN (USLE) KE PASOKAN SEDIMEN SUNGAI", "accent": "#0284c7"},
+        {"n": "02", "slug": "Inventarisasi13UnitLahan", "title": "INVENTARISASI PARAMETER R, K, LS, C, P PADA 13 UNIT LAHAN DAS JRAGUNG & TUNTANG", "accent": "#0ea5e9"},
+        {"n": "03", "slug": "AnalisisErosivitasHujanR", "title": "ANALISIS EROSIVITAS HUJAN TAHUNAN (FAKTOR R) & POLA MUSON JAWA TENGAH", "accent": "#10b981"},
+        {"n": "04", "slug": "ErodibilitasTanahTopografi", "title": "EVALUASI ERODIBILITAS TANAH (FAKTOR K) & KEMIRINGAN LERENG (FAKTOR LS)", "accent": "#f59e0b"},
+        {"n": "05", "slug": "ManajemenTutupanKonservasi", "title": "EVALUASI TUTUPAN VEGETASI (FAKTOR C) & TINDAKAN KONSERVASI LAHAN (FAKTOR P)", "accent": "#f97316"},
+        {"n": "06", "slug": "PemodelanFungsiSDR", "title": "PEMODELAN RASIO PENGIRIMAN SEDIMEN (SDR = α·A^β) TERHADAP LUAS DAS", "accent": "#8b5cf6"},
+        {"n": "07", "slug": "KalibrasiHidrometriSSC", "title": "KALIBRASI MODEL SEDIMEN TERHADAP KONSENTRASI SEDIMEN TERSUSPENSI (SSC) POS DUGA", "accent": "#06b6d4"},
+        {"n": "08", "slug": "EfisiensiTangkapanSaboDam", "title": "ANALISIS TRAP EFFICIENCY (TE) CEK DAM HULU & BANGUNAN PENGENDALI SEDIMEN", "accent": "#ef4444"},
+        {"n": "09", "slug": "PemisahanMuatanSuspensiBedload", "title": "PEMISAHAN FRAKSI MUATAN TERSUSPENSI (WASH LOAD) DAN MUATAN DASAR (BEDLOAD)", "accent": "#14b8a6"},
+        {"n": "10", "slug": "DistribusiMusimanArnoldus", "title": "DISTRIBUSI PASOKAN SEDIMEN BULANAN DENGAN INDEKS MODIFIKASI FOURNIER–ARNOLDUS", "accent": "#6366f1"},
+        {"n": "11", "slug": "AnalisisSensitivitasParameter", "title": "ANALISIS SENSITIVITAS ONE-AT-A-TIME (OAT) PARAMETER USLE–SDR TERHADAP YIELD", "accent": "#eab308"},
+        {"n": "12", "slug": "IntegrasiInputDSSSedimenPro", "title": "SPESIFIKASI PARAMETER PASOKAN SEDIMEN HULU (Qs,in) UNTUK MODEL PANTAI DSS SEDIMEN PRO", "accent": "#ec4899"},
+        {"n": "13", "slug": "RekomendasiMasterplanKonservasi", "title": "REKOMENDASI TEKNIS MASTERPLAN KONSERVASI TANAH & AIR DAS JRAGUNG–TUNTANG", "accent": "#10b981"}
+    ];
+
+    function renderUsleWordList() {
+        const host = $('usleWordReportsList');
+        if (!host) return;
+        host.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px">` +
+            USLE_WORD_REPORTS.map((r, i) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:12px;background:rgba(2,6,23,.75);border:1px solid #1e293b">
+                    <div style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;flex-shrink:0;background:${r.accent}22;border:1px solid ${r.accent}66;color:${r.accent}">${r.n}</div>
+                    <div style="flex:1;min-width:0"><p style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.title}</p>
+                    <p style="font-size:8.5px;color:#64748b">DAS Jragung &amp; Tuntang &bull; USLE–SDR Pro</p></div>
+                    <button onclick="exportUsleSingleWord(${i})" style="padding:6px 10px;border-radius:8px;background:rgba(2,132,199,.65);border:1px solid rgba(14,165,233,.6);color:#bae6fd;font-size:9px;font-weight:900;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-file-word"></i> WORD</button>
+                </div>
+            `).join('') + `</div>`;
+    }
+
+    function openWordReportsModal() {
+        renderUsleWordList();
+        $('wordReportsModal').classList.remove('hidden');
+    }
+    function closeWordReportsModal() {
+        $('wordReportsModal').classList.add('hidden');
+    }
+
+    function exportUsleSingleWord(idx) {
+        const r = USLE_WORD_REPORTS[idx];
+        const res = R.res || calc();
+        const bodyReport = buildReportHTML(res);
+        const content = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:A4;margin:2.2cm}body{font-family:Arial,sans-serif;font-size:11pt;line-height:1.5;color:#111}h1{font-size:14pt;color:#0C2340}h2{font-size:11pt;color:#0284c7;border-bottom:1px solid #94a3b8;margin-top:14pt}table{border-collapse:collapse;width:100%;font-size:9.5pt;margin:8pt 0}th,td{border:1px solid #888;padding:4pt 6pt}th{background:#e2e8f0;text-align:left}</style></head><body>` +
+            `<div style="background:#0C2340;color:#fff;padding:12pt 16pt;border-radius:6pt;margin-bottom:14pt"><h2 style="color:#fbbf24;border:0;margin:0">DOKUMEN TOPIK #${r.n}: ${r.title}</h2><p style="font-size:9.5pt;margin:4pt 0 0;color:#bae6fd">Proyek: Pemodelan USLE–SDR DAS Jragung &amp; Tuntang ke Pasokan Sedimen Sungai (DSS Sedimen Pro) • Penyusun: Ir. Mohamad Hartadi</p></div>` +
+            bodyReport + `</body></html>`;
+        dlFile(content, `Laporan_USLE_SDR_Topik${r.n}_${r.slug}.doc`, 'application/msword');
+    }
+
+    function exportAllUsleWordReports() {
+        USLE_WORD_REPORTS.forEach((_, i) => setTimeout(() => exportUsleSingleWord(i), i * 280));
+    }
+
+    /* ============================================================================
+       BAGIAN 6: DIREKTORI 61 MY APLIKASI, MODALS, JAM WIB & EVENT LISTENERS
+       ============================================================================ */
+    const myAppsDirectory = [
+        {"u": "https://adikds-byte.github.io/DSS-Sedimen-Pro-v4.81-Pro/", "n": "DSS Sedimen Pro v4.81", "cat": "Pesisir & Sedimen"},
+        {"u": "https://adikds.github.io/WAY-APU-DAM/", "n": "Way Apu Dam Impounding Pro", "cat": "Bendungan & Hidrologi"},
+        {"u": "https://adikds.github.io/INTEGRATED-DAM-ANALYTICS-ASSESSMENT-SYSTEM/", "n": "Dam Analytics System", "cat": "Bendungan & Hidrologi"},
+        {"u": "https://adikds-byte.github.io/BENDUNGAN-TAILING-COMMAND-CENTRE/", "n": "Tailing Dam Command Centre", "cat": "Geoteknik & Sipil"},
+        {"u": "https://adikds.github.io/jarvis-ai/", "n": "JARVIS AI Command", "cat": "AI & Agent"},
+        {"u": "https://adikds.github.io/APEX-Foundations-v3.1-Geotechnical-AI-/", "n": "Apex Foundations v3.1", "cat": "Geoteknik & Sipil"},
+        {"u": "https://adikds.github.io/GeoStructPro-15-Essential-Geotechnical-Formulas/", "n": "GeoStructPro 15", "cat": "Geoteknik & Sipil"},
+        {"u": "https://adikds.github.io/GEOSTRUCT-PRO-20-FORMULA-GEOTECHNICAL/", "n": "GeoStruct Pro 20", "cat": "Geoteknik & Sipil"},
+        {"u": "https://adikds.github.io/SISTEM-MONITORING-SEISMIK-PERINGATAN-TSUNAMI/", "n": "Monitoring Seismik & Tsunami", "cat": "Seismik & Mitigasi"},
+        {"u": "https://adikds.github.io/MONITORING-PREDIKSI-ANGIN-MUSON-INDONESIA/", "n": "Monitoring Angin Muson", "cat": "Klimatologi & Cuaca"},
+        {"u": "https://adikds-byte.github.io/COASTAL-SWI-ENGINE-PRO/", "n": "Coastal SWI Engine Pro", "cat": "Pesisir & Coastal SWI"},
+        {"u": "https://adikds-byte.github.io/Indonesia_Dams_DSS/", "n": "Indonesia Dams DSS", "cat": "Bendungan & Energy"},
+        {"u": "https://newbieonline7.blogspot.com/", "n": "My Blog Engineering & AI", "cat": "Blog Artikel & AI"}
+    ];
+
+    function openAppsModal() {
+        renderAppsDirectory('');
+        $('modalApps').classList.remove('hidden');
+        $('modalApps').classList.add('flex');
+    }
+    function closeAppsModal() {
+        $('modalApps').classList.add('hidden');
+        $('modalApps').classList.remove('flex');
+    }
+    function renderAppsDirectory(q = '') {
+        const box = $('appsGridContainer');
+        const lower = q.toLowerCase();
+        const list = myAppsDirectory.filter(a => a.n.toLowerCase().includes(lower) || a.cat.toLowerCase().includes(lower));
+        box.innerHTML = list.map((a, i) => `
+            <a href="${a.u}" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-slate-900 border border-lime-500/40 hover:border-amber-400 flex justify-between items-center transition">
+                <div>
+                    <div class="font-bold text-white text-xs">#${i + 1} ${a.n}</div>
+                    <span class="text-[9.5px] text-lime-300">${a.cat}</span>
+                </div>
+                <i class="fa-solid fa-arrow-up-right-from-square text-amber-400 text-xs"></i>
+            </a>
+        `).join('');
+    }
+
+    function openCreatorModal() { $('creatorModal').classList.remove('hidden'); }
+    function closeCreatorModal() { $('creatorModal').classList.add('hidden'); }
+
+    function updateLiveClocks() {
+        const now = new Date();
+        const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        const timeStr = now.toTimeString().slice(0, 8);
+
+        $('topDashDate').textContent = dateStr;
+        $('topDashTime').textContent = `${timeStr} WIB`;
+        $('loadingClock').textContent = `${dateStr} • ${timeStr} WIB`;
+        $('screensaverClock').textContent = timeStr;
+        $('screensaverDate').textContent = `${dateStr} • ${timeStr} WIB`;
+        if (R.res) {
+            $('screensaverStatus').textContent = `DAS JRAGUNG & TUNTANG (${nf(R.res.areaKm, 0)} KM²) • YIELD: ${nf(R.res.SY, 0)} T/TH • Qs,in: ${nf(R.res.V, 0)} M³/TH`;
+        }
+    }
+
+    function toggleScreensaver(show) {
+        const el = $('screensaverOverlay');
+        if (show) {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+            renderWisdomCard();
+            if (!window._ssEarthMounted) {
+                mount3DEarthScene('ssEarthCanvas');
+                window._ssEarthMounted = true;
+            } else if (ssEarthObj && ssEarthObj.resize) {
+                setTimeout(() => ssEarthObj.resize(), 60);
+            }
+        } else {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        }
+    }
+
+    function toggleThemeMode() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        $('themeIcon').className = isDark ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+
+    function dismissLoadingScreen() {
+        const ov = $('loadingOverlay');
+        if (ov) {
+            ov.style.opacity = '0';
+            ov.style.pointerEvents = 'none';
+            setTimeout(() => { ov.style.display = 'none'; }, 550);
+        }
+        try { if (bootEarthObj && bootEarthObj.stop) bootEarthObj.stop(); } catch (e) {}
+        setTimeout(renderAll, 80);
+    }
+
+    let dasMapInstance = null;
+    function initDasWebGisIfNeeded() {
+        if (dasMapInstance) {
+            setTimeout(() => dasMapInstance.invalidateSize(), 120);
+            return;
+        }
+        const mapEl = $('dasLeafletMap');
+        if (!mapEl || typeof L === 'undefined') return;
+        const centerCoords = [-6.95, 110.55];
+        dasMapInstance = L.map('dasLeafletMap', { center: centerCoords, zoom: 10 });
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Esri Satellite • DAS Jragung & Tuntang'
+        }).addTo(dasMapInstance);
+
+        L.marker([-7.08, 110.52]).addTo(dasMapInstance).bindPopup('<b>Hulu DAS Jragung & Waduk Jragung</b><br>Erosivitas R = 3.200 • K = 0,13');
+        L.marker([-6.82, 110.62]).addTo(dasMapInstance).bindPopup('<b>Alur Hilir Sungai Tuntang → Pesisir Demak</b><br>Erosivitas R = 3.400 • K = 0,12 • Outlet Qs,in DSS');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        updateLiveClocks();
+        setInterval(updateLiveClocks, 1000);
+
+        // Mount Ultra-Realistic 3D Earth on Boot Loading Screen & Main Background
+        mount3DEarthScene('loadingEarthCanvas');
+        mount3DEarthScene('bgEarthCanvas');
+
+        // Build Tables & Render Calculations
+        buildUnitTableDOM();
+        buildMonthlyRainDOM();
+        renderAll();
+        clearChatHistory();
+
+        // Navigation Tabs
+        document.querySelectorAll('#mainTabNav button[data-s]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#mainTabNav button[data-s]').forEach(b => {
+                    b.className = 'nav-tab-btn px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 cursor-pointer flex items-center gap-2';
+                });
+                btn.className = 'nav-tab-btn px-3.5 py-2 rounded-xl bg-sky-600 text-white font-bold shadow cursor-pointer flex items-center gap-2';
+
+                document.querySelectorAll('.ws-section').forEach(sec => sec.classList.add('hidden'));
+                const target = $('s-' + btn.dataset.s);
+                if (target) target.classList.remove('hidden');
+
+                setTimeout(renderAll, 40);
+                if (btn.dataset.s === 'met') setTimeout(initDasWebGisIfNeeded, 100);
+            });
+        });
+
+        // Unit Table Input & Safe Delete
+        $('tbUnit').addEventListener('input', e => {
+            const t = e.target;
+            if (!t.dataset || !t.dataset.k) return;
+            const i = +t.dataset.i, k = t.dataset.k;
+            if (!U[i]) return;
+            U[i][k] = (k === 'n') ? t.value : (parseFloat(String(t.value).replace(',', '.')) || 0);
+            renderAll();
+        });
+
+        $('tbUnit').addEventListener('click', e => {
+            const delBtn = e.target.closest('button[data-del]');
+            if (!delBtn) return;
+            const idx = parseInt(delBtn.dataset.del, 10);
+            if (!isNaN(idx) && U.length > 1) {
+                U.splice(idx, 1);
+                buildUnitTableDOM();
+                renderAll();
+            }
+        });
+
+        $('btnAdd').addEventListener('click', () => {
+            U.push({ n: 'Unit Lahan Baru ' + (U.length + 1), a: 150, R: 3200, K: 0.13, LS: 1.50, C: 0.25, P: 1 });
+            buildUnitTableDOM();
+            renderAll();
+        });
+
+        $('btnReset').addEventListener('click', () => {
+            U = JSON.parse(JSON.stringify(U0));
+            RAIN = RAIN0.slice();
+            $('d_sdr').value = '';
+            $('gridMonth').dataset.done = '';
+            buildUnitTableDOM();
+            buildMonthlyRainDOM();
+            renderAll();
+        });
+
+        document.querySelectorAll('.param-inp').forEach(el => {
+            el.addEventListener('input', renderAll);
+        });
+
+        $('gridMonth').addEventListener('input', e => {
+            const m = e.target.dataset ? e.target.dataset.m : null;
+            if (m !== null && m !== undefined) {
+                RAIN[+m] = parseFloat(e.target.value) || 0;
+                renderAll();
+            }
+        });
+
+        // Exports
+        $('btnWord').addEventListener('click', () => exportUsleSingleWord(0));
+        $('btnJson').addEventListener('click', () => dlFile(JSON.stringify(R.param || {}, null, 2), 'parameter_Qs_in_DSS.json', 'application/json'));
+        $('btnCsv').addEventListener('click', () => {
+            let s = 'Unit;Luas_ha;R;K;LS;C;P;E_t_ha_th;Erosi_t_th\n';
+            U.forEach(u => {
+                const A = u.R * u.K * u.LS * u.C * u.P;
+                s += [u.n, u.a, u.R, u.K, u.LS, u.C, u.P, A.toFixed(2), (A * u.a).toFixed(0)].join(';') + '\n';
+            });
+            dlFile(s, 'unit_lahan_USLE.csv', 'text/csv');
+        });
+        $('btnCopy').addEventListener('click', () => {
+            const t = $('outParam').textContent;
+            const ta = document.createElement('textarea');
+            ta.value = t; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            const b = $('btnCopy');
+            b.innerHTML = '<i class="fa-solid fa-check"></i> Tersalin!';
+            setTimeout(() => { b.innerHTML = '<i class="fa-solid fa-copy"></i> Salin Blok JSON DSS'; }, 1500);
+        });
+
+        // Boot Loading Sequence with Hold Option for 3D Earth Exploration
+        let pct = 25;
+        const iv = setInterval(() => {
+            if (holdBootFlag) return;
+            pct += 25;
+            const bar = $('loadingProgressBar');
+            const lbl = $('loadingPercent');
+            if (bar) bar.style.width = Math.min(100, pct) + '%';
+            if (lbl) lbl.textContent = Math.min(100, pct) + '%';
+            if (pct >= 100) {
+                window._bootLoadedDone = true;
+                clearInterval(iv);
+                setTimeout(() => {
+                    if (!holdBootFlag) dismissLoadingScreen();
+                }, 650);
+            }
+        }, 380);
+    });
+    </script>
+</body>
+</html>
